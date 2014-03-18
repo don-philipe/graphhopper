@@ -261,6 +261,20 @@ public class CarFlagEncoderTest
         // no barrier!
         assertTrue(encoder.analyzeNodeTags(node) == 0);
     }
+    
+    @Test
+    public void testTrafficsignals()
+    {
+        Map<String, String> map = new HashMap<String, String>();
+        OSMWay way = new OSMWay(1, map);
+        map.put("highway", "residential");
+        map.put("maxspeed", "50");
+        OSMNode node = new OSMNode(1, -1, -1);
+        node.setTag("highway", "traffic_signals");
+        assertTrue(encoder.analyzeNodeTags(node) < 0);
+        assertEquals(-1, encoder.analyzeNodeTags(node));
+        assertEquals(30.0, encoder.getSpeed(encoder.applyNodeFlags(encoder.handleWayTags(way, encoder.acceptWay(way), 0), encoder.analyzeNodeTags(node))), 0.1);
+    }
 
     @Test
     public void testTurnFlagEncoding_noCosts()

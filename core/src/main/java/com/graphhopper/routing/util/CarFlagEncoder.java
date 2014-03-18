@@ -50,7 +50,10 @@ public class CarFlagEncoder extends AbstractFlagEncoder
     protected CarFlagEncoder( int speedBits, double speedFactor )
     {
         super(speedBits, speedFactor);
-        restrictions = new String[] { "motorcar", "motor_vehicle", "vehicle", "access" };
+        restrictions = new String[]
+        {
+            "motorcar", "motor_vehicle", "vehicle", "access"
+        };
         restrictedValues.add("private");
         restrictedValues.add("agricultural");
         restrictedValues.add("forestry");
@@ -198,7 +201,17 @@ public class CarFlagEncoder extends AbstractFlagEncoder
         if (node.hasTag("barrier", absoluteBarriers))
             return directionBitMask;
 
+        if (node.hasTag("highway", "traffic_signals"))
+            return -1;
+
         return super.analyzeNodeTags(node);
+    }
+
+    @Override
+    public long applyNodeFlags( long wayFlags, long nodeFlags )
+    {   
+        double speed = getSpeed(wayFlags) * 0.7f;
+        return setSpeed(wayFlags, speed);
     }
 
     @Override
@@ -238,7 +251,8 @@ public class CarFlagEncoder extends AbstractFlagEncoder
     @Override
     public Collection<TurnCostTableEntry> analyzeTurnRelation( OSMTurnRelation turnRelation, OSMReader osmReader )
     {
-        if(edgeOutExplorer == null || edgeInExplorer == null) {
+        if (edgeOutExplorer == null || edgeInExplorer == null)
+        {
             edgeOutExplorer = osmReader.getGraphStorage().createEdgeExplorer(new DefaultEdgeFilter(this, false, true));
             edgeInExplorer = osmReader.getGraphStorage().createEdgeExplorer(new DefaultEdgeFilter(this, true, false));
         }
