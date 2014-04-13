@@ -18,25 +18,33 @@
 package com.graphhopper;
 
 import com.graphhopper.util.shapes.GHPlace;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * GraphHopper request wrapper to simplify requesting GraphHopper.
  * <p/>
  * @author Peter Karich
+ * @author ratrun
  */
 public class GHRequest
 {
     private String algo = "dijkstrabi";
-    private GHPlace from;
-    private GHPlace to;
-    private Map<String, Object> hints = new HashMap<String, Object>(5);
+    private List<GHPlace> places = new ArrayList<GHPlace>(5);
+    private final Map<String, Object> hints = new HashMap<String, Object>(5);
     private String vehicle = "CAR";
-    private String weighting = "shortest";
+    private String weighting = "fastest";
+    private boolean possibleToAdd = false;
+
+    public GHRequest()
+    {
+        possibleToAdd = true;
+    }
 
     /**
-     * Calculate the path from specified startPoint (fromLat, fromLon) to endPoint (toLat, toLon).
+     * Calculate the path from specified startPlace (fromLat, fromLon) to endPlace (toLat, toLon).
      */
     public GHRequest( double fromLat, double fromLon, double toLat, double toLon )
     {
@@ -44,31 +52,39 @@ public class GHRequest
     }
 
     /**
-     * Calculate the path from specified startPoint to endPoint.
+     * Calculate the path from specified startPlace to endPlace.
      */
-    public GHRequest( GHPlace startPoint, GHPlace endPoint )
+    public GHRequest( GHPlace startPlace, GHPlace endPlace )
     {
-        this.from = startPoint;
-        this.to = endPoint;
+        if (startPlace == null)
+            throw new IllegalStateException("'from' cannot be null");
+
+        if (endPlace == null)
+            throw new IllegalStateException("'to' cannot be null");
+        places.add(startPlace);
+        places.add(endPlace);
     }
 
-    public void check()
+    public GHRequest( List<GHPlace> places )
     {
-        if (from == null)
-            throw new IllegalStateException("the 'from' point needs to be initialized but was null");
-
-        if (to == null)
-            throw new IllegalStateException("the 'to' point needs to be initialized but was null");
+        this.places = places;
     }
 
-    public GHPlace getFrom()
+    public GHRequest addPlace( GHPlace place )
     {
-        return from;
+        if (place == null)
+            throw new IllegalArgumentException("place cannot be null");
+        if (!possibleToAdd)
+            throw new IllegalStateException("Please call empty constructor if you intent to use "
+                    + "more than two places via addPlace method.");
+
+        places.add(place);
+        return this;
     }
 
-    public GHPlace getTo()
+    public List<GHPlace> getPlaces()
     {
-        return to;
+        return places;
     }
 
     /**
@@ -102,13 +118,30 @@ public class GHRequest
         if (obj == null)
             return defaultValue;
 
+        if (defaultValue != null && defaultValue instanceof Number)
+        {
+            // what a monster! see #173
+            if (defaultValue instanceof Double)
+                return (T) (Double) ((Number) obj).doubleValue();
+            if (defaultValue instanceof Long)
+                return (T) (Long) ((Number) obj).longValue();
+        }
+
         return (T) obj;
     }
 
     @Override
     public String toString()
     {
-        return from + " " + to + " (" + algo + ")";
+        String res = "";
+        for (GHPlace place : places)
+        {
+            if (res.isEmpty())
+                res = place.toString();
+            else
+                res += "; " + place.toString();
+        }
+        return res + "(" + algo + ")";
     }
 
     /**
