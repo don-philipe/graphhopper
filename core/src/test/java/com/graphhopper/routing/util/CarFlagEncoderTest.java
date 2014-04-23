@@ -19,8 +19,10 @@ package com.graphhopper.routing.util;
 
 import com.graphhopper.reader.OSMNode;
 import com.graphhopper.reader.OSMWay;
-import org.junit.Test;
+import java.util.HashMap;
+import java.util.Map;
 import static org.junit.Assert.*;
+import org.junit.Test;
 
 /**
  *
@@ -256,15 +258,16 @@ public class CarFlagEncoderTest
     @Test
     public void testTrafficsignals()
     {
-        Map<String, String> map = new HashMap<String, String>();
-        OSMWay way = new OSMWay(1, map);
-        map.put("highway", "residential");
-        map.put("maxspeed", "50");
+        OSMWay way = new OSMWay(1);
+        way.setTag("highway", "primary");
+        way.setTag("maxspeed", "50");
+        long encoded = encoder.handleWayTags(way, encoder.acceptWay(way), 0);
+        assertEquals(45, encoder.getSpeed(encoded), 0.1);
         OSMNode node = new OSMNode(1, -1, -1);
         node.setTag("highway", "traffic_signals");
-        assertTrue(encoder.analyzeNodeTags(node) < 0);
-        assertEquals(-1, encoder.analyzeNodeTags(node));
-        assertEquals(30.0, encoder.getSpeed(encoder.applyNodeFlags(encoder.handleWayTags(way, encoder.acceptWay(way), 0), encoder.analyzeNodeTags(node))), 0.1);
+//        assertEquals(-1, encoder.handleNodeTags(node));
+        encoded = encoder.applyNodeFlags(encoder.handleWayTags(way, encoder.acceptWay(way), 0), encoder.handleNodeTags(node));
+        assertEquals(30.0, encoder.getSpeed(encoded), 0.1);
     }
 
     @Test
