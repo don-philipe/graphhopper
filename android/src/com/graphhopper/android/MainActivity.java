@@ -50,7 +50,6 @@ import android.widget.Toast;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopper;
-import com.graphhopper.GraphHopperAPI;
 import com.graphhopper.util.Constants;
 import com.graphhopper.util.Downloader;
 import com.graphhopper.util.Helper;
@@ -61,7 +60,7 @@ import com.graphhopper.util.StopWatch;
 public class MainActivity extends Activity
 {
     private MapView mapView;
-    private GraphHopperAPI hopper;
+    private GraphHopper hopper;
     private LatLong start;
     private LatLong end;
     private Spinner localSpinner;
@@ -71,7 +70,7 @@ public class MainActivity extends Activity
     private volatile boolean prepareInProgress = false;
     private volatile boolean shortestPathRunning = false;
     private String currentArea = "berlin";
-    private String fileListURL = "http://graphhopper.com/public/maps/0.3/";
+    private String fileListURL = "https://graphhopper.com/public/maps/0.3/";
     private String prefixURL = fileListURL;
     private String downloadURL;
     private File mapsFolder;
@@ -166,6 +165,16 @@ public class MainActivity extends Activity
         chooseAreaFromLocal();
     }
 
+    @Override
+    protected void onDestroy()
+    {
+        super.onDestroy();
+        hopper.close();
+        hopper = null;
+        // necessary?
+        System.gc();
+    }
+
     boolean isReady()
     {
         // only return true if already loaded
@@ -249,7 +258,7 @@ public class MainActivity extends Activity
             @Override
             protected void onPostExecute( List<String> nameList )
             {
-                if (hasError())
+                if (hasError() || nameList.isEmpty())
                 {
                     logUser("Are you connected to the internet? Problem while fetching remote area list: "
                             + getErrorMessage());
@@ -304,7 +313,7 @@ public class MainActivity extends Activity
             public void onClick( View v )
             {
                 Object o = spinner.getSelectedItem();
-                if (o != null && o.toString().length() > 0)
+                if (o != null && o.toString().length() > 0 && !nameToFullName.isEmpty())
                 {
                     String area = o.toString();
                     mylistener.onSelect(area, nameToFullName.get(area));
@@ -390,7 +399,7 @@ public class MainActivity extends Activity
                 true, AndroidGraphicFactory.INSTANCE)
                 {
                     @Override
-                    public boolean onTap( LatLong tapLatLong, Point layerXY, Point tapXY )
+                    public boolean onLongPress( LatLong tapLatLong, Point layerXY, Point tapXY )
                     {
                         return onMapTap(tapLatLong, layerXY, tapXY);
                     }
@@ -428,7 +437,7 @@ public class MainActivity extends Activity
                             + getErrorMessage());
                 } else
                 {
-                    logUser("Finished loading graph. Touch to route.");
+                    logUser("Finished loading graph. Press long to define where to start and end the route.");
                 }
 
                 finishPrepare();

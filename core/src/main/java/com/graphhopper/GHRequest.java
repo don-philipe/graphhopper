@@ -17,10 +17,12 @@
  */
 package com.graphhopper;
 
-import com.graphhopper.util.shapes.GHPlace;
+import com.graphhopper.util.Helper;
+import com.graphhopper.util.shapes.GHPoint;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -31,15 +33,22 @@ import java.util.Map;
  */
 public class GHRequest
 {
-    private String algo = "dijkstrabi";
-    private List<GHPlace> places = new ArrayList<GHPlace>(5);
+    private String algo = "";
+    private List<GHPoint> points;
     private final Map<String, Object> hints = new HashMap<String, Object>(5);
-    private String vehicle = "CAR";
-    private String weighting = "fastest";
+    private String vehicle = "";
+    private String weighting = "";
     private boolean possibleToAdd = false;
+    private Locale locale = Locale.US;
 
     public GHRequest()
     {
+        this(5);
+    }
+
+    public GHRequest( int size )
+    {
+        points = new ArrayList<GHPoint>(size);
         possibleToAdd = true;
     }
 
@@ -48,58 +57,108 @@ public class GHRequest
      */
     public GHRequest( double fromLat, double fromLon, double toLat, double toLon )
     {
-        this(new GHPlace(fromLat, fromLon), new GHPlace(toLat, toLon));
+        this(new GHPoint(fromLat, fromLon), new GHPoint(toLat, toLon));
     }
 
     /**
      * Calculate the path from specified startPlace to endPlace.
      */
-    public GHRequest( GHPlace startPlace, GHPlace endPlace )
+    public GHRequest( GHPoint startPlace, GHPoint endPlace )
     {
         if (startPlace == null)
             throw new IllegalStateException("'from' cannot be null");
 
         if (endPlace == null)
             throw new IllegalStateException("'to' cannot be null");
-        places.add(startPlace);
-        places.add(endPlace);
+        points = new ArrayList<GHPoint>(2);
+        points.add(startPlace);
+        points.add(endPlace);
     }
 
-    public GHRequest( List<GHPlace> places )
+    public GHRequest( List<GHPoint> points )
     {
-        this.places = places;
+        this.points = points;
     }
 
-    public GHRequest addPlace( GHPlace place )
+    public GHRequest addPoint( GHPoint point )
     {
-        if (place == null)
-            throw new IllegalArgumentException("place cannot be null");
+        if (point == null)
+            throw new IllegalArgumentException("point cannot be null");
         if (!possibleToAdd)
             throw new IllegalStateException("Please call empty constructor if you intent to use "
                     + "more than two places via addPlace method.");
 
-        places.add(place);
+        points.add(point);
         return this;
     }
 
-    public List<GHPlace> getPlaces()
+    public List<GHPoint> getPoints()
     {
-        return places;
+        return points;
     }
 
     /**
      * Possible values: astar (A* algorithm, default), astarbi (bidirectional A*) dijkstra
-     * (Dijkstra), dijkstrabi and dijkstraNativebi (a bit faster bidirectional Dijkstra).
+     * (Dijkstra), dijkstrabi and dijkstraNativebi (a bit faster bidirectional Dijkstra). Or specify
+     * empty to use default.
      */
     public GHRequest setAlgorithm( String algo )
     {
-        this.algo = algo;
+        if (algo != null)
+            this.algo = algo;
         return this;
     }
 
     public String getAlgorithm()
     {
         return algo;
+    }
+
+    public Locale getLocale()
+    {
+        return locale;
+    }
+
+    public GHRequest setLocale( Locale locale )
+    {
+        if (locale != null)
+            this.locale = locale;
+        return this;
+    }
+
+    public GHRequest setLocale( String localeStr )
+    {
+        return setLocale(Helper.getLocale(localeStr));
+    }
+
+    /**
+     * By default it supports fastest and shortest. Or specify empty to use default.
+     */
+    public GHRequest setWeighting( String w )
+    {
+        if (w != null)
+            this.weighting = w;
+        return this;
+    }
+
+    public String getWeighting()
+    {
+        return weighting;
+    }
+
+    /**
+     * Specifiy car, bike or foot. Or specify empty to use default.
+     */
+    public GHRequest setVehicle( String vehicle )
+    {
+        if (vehicle != null)
+            this.vehicle = vehicle;
+        return this;
+    }
+
+    public String getVehicle()
+    {
+        return vehicle;
     }
 
     public GHRequest putHint( String key, Object value )
@@ -134,38 +193,13 @@ public class GHRequest
     public String toString()
     {
         String res = "";
-        for (GHPlace place : places)
+        for (GHPoint point : points)
         {
             if (res.isEmpty())
-                res = place.toString();
+                res = point.toString();
             else
-                res += "; " + place.toString();
+                res += "; " + point.toString();
         }
         return res + "(" + algo + ")";
-    }
-
-    /**
-     * By default it supports fastest and shortest
-     */
-    public GHRequest setWeighting( String w )
-    {
-        this.weighting = w;
-        return this;
-    }
-
-    public String getWeighting()
-    {
-        return weighting;
-    }
-
-    public GHRequest setVehicle( String vehicle )
-    {
-        this.vehicle = vehicle;
-        return this;
-    }
-
-    public String getVehicle()
-    {
-        return vehicle;
     }
 }

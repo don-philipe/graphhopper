@@ -50,7 +50,7 @@ public class LocationIndexTree implements LocationIndex
 {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final int MAGIC_INT;
-    protected static DistanceCalc distCalc = new DistancePlaneProjection();
+    protected DistanceCalc distCalc = new DistancePlaneProjection();
     private DistanceCalc preciseDistCalc = new DistanceCalcEarth();
     protected final Graph graph;
     private final NodeAccess nodeAccess;
@@ -323,6 +323,12 @@ public class LocationIndexTree implements LocationIndex
     public void close()
     {
         dataAccess.close();
+    }
+
+    @Override
+    public boolean isClosed()
+    {
+        return dataAccess.isClosed();
     }
 
     @Override
@@ -622,6 +628,9 @@ public class LocationIndexTree implements LocationIndex
     public QueryResult findClosest( final double queryLat, final double queryLon,
             final EdgeFilter edgeFilter )
     {
+        if (isClosed())
+            throw new IllegalStateException("You need to create a new LocationIndex instance as it is already closed");
+
         final TIntHashSet storedNetworkEntryIds = findNetworkEntries(queryLat, queryLon);
         final QueryResult closestMatch = new QueryResult(queryLat, queryLon);
         if (storedNetworkEntryIds.isEmpty())

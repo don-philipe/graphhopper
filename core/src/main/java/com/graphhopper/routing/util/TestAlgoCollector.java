@@ -19,7 +19,6 @@ package com.graphhopper.routing.util;
 
 import com.graphhopper.GHResponse;
 import com.graphhopper.routing.Path;
-import com.graphhopper.routing.RoutingAlgorithm;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.index.LocationIndex;
 import com.graphhopper.storage.index.QueryResult;
@@ -27,9 +26,11 @@ import com.graphhopper.util.DistanceCalc;
 import com.graphhopper.util.DistanceCalcEarth;
 import com.graphhopper.util.PathMerger;
 import com.graphhopper.util.PointList;
+import com.graphhopper.util.TranslationMap;
 import com.graphhopper.util.shapes.GHPoint;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * @author Peter Karich
@@ -38,6 +39,7 @@ public class TestAlgoCollector
 {
     private final String name;
     private final DistanceCalc distCalc = new DistanceCalcEarth();
+    private final TranslationMap trMap = new TranslationMap().doImport();
     public List<String> errors = new ArrayList<String>();
 
     public TestAlgoCollector( String name )
@@ -51,14 +53,15 @@ public class TestAlgoCollector
         for (int i = 0; i < queryList.size() - 1; i++)
         {
             Path path = prepare.createAlgo().calcPath(queryList.get(i), queryList.get(i + 1));
-            viaPaths.add(path);path.calcPoints().size();
+            // System.out.println(path.calcInstructions().createGPX("temp", 0, "GMT"));
+            viaPaths.add(path);
         }
         PathMerger pathMerger = new PathMerger().
                 setCalcPoints(true).
                 setSimplifyRequest(false).
                 setEnableInstructions(true);
         GHResponse rsp = new GHResponse();
-        pathMerger.doWork(rsp, viaPaths);
+        pathMerger.doWork(rsp, viaPaths, trMap.getWithFallBack(Locale.US));
 
         if (!rsp.isFound())
         {
@@ -69,14 +72,14 @@ public class TestAlgoCollector
 
         PointList pointList = rsp.getPoints();
         double tmpDist = pointList.calcDistance(distCalc);
-        if (Math.abs(rsp.getDistance() - tmpDist) > 5)
+        if (Math.abs(rsp.getDistance() - tmpDist) > 2)
         {
             errors.add(prepare + " path.getDistance was  " + rsp.getDistance()
                     + "\t pointList.calcDistance was " + tmpDist + "\t (expected points " + oneRun.getLocs()
                     + ", expected distance " + oneRun.getDistance() + ") " + queryList);
         }
 
-        if (Math.abs(rsp.getDistance() - oneRun.getDistance()) > 4)
+        if (Math.abs(rsp.getDistance() - oneRun.getDistance()) > 2)
         {
             errors.add(prepare + " returns path not matching the expected distance of " + oneRun.getDistance()
                     + "\t Returned was " + rsp.getDistance() + "\t (expected points " + oneRun.getLocs()
@@ -84,7 +87,7 @@ public class TestAlgoCollector
         }
 
         // There are real world instances where A-B-C is identical to A-C (in meter precision).
-        if (Math.abs(pointList.getSize() - oneRun.getLocs()) > 4)
+        if (Math.abs(pointList.getSize() - oneRun.getLocs()) > 1)
         {
             errors.add(prepare + " returns path not matching the expected points of " + oneRun.getLocs()
                     + "\t Returned was " + pointList.getSize() + "\t (expected distance " + oneRun.getDistance()

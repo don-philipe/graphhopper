@@ -24,6 +24,7 @@ import java.io.*;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
+import java.nio.charset.Charset;
 import java.security.AccessController;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
@@ -40,9 +41,10 @@ import org.slf4j.LoggerFactory;
  * @author Peter Karich
  */
 public class Helper
-{
+{    
     private static final DistanceCalc dce = new DistanceCalcEarth();
     private static final Logger logger = LoggerFactory.getLogger(Helper.class);
+    public static Charset UTF_CS = Charset.forName("UTF-8");
     public static final long MB = 1L << 20;
 
     public static ArrayList<Integer> tIntListToArrayList( TIntList from )
@@ -131,7 +133,7 @@ public class Helper
 
     public static List<String> readFile( String file ) throws IOException
     {
-        return readFile(new InputStreamReader(new FileInputStream(file), "UTF-8"));
+        return readFile(new InputStreamReader(new FileInputStream(file), UTF_CS));
     }
 
     public static List<String> readFile( Reader simpleReader ) throws IOException
@@ -374,12 +376,16 @@ public class Helper
                 @Override
                 public Object run() throws Exception
                 {
-                    final Method getCleanerMethod = buffer.getClass().getMethod("cleaner");
-                    getCleanerMethod.setAccessible(true);
-                    final Object cleaner = getCleanerMethod.invoke(buffer);
-                    if (cleaner != null)
+                    try
                     {
-                        cleaner.getClass().getMethod("clean").invoke(cleaner);
+                        final Method getCleanerMethod = buffer.getClass().getMethod("cleaner");
+                        getCleanerMethod.setAccessible(true);
+                        final Object cleaner = getCleanerMethod.invoke(buffer);
+                        if (cleaner != null)
+                            cleaner.getClass().getMethod("clean").invoke(cleaner);
+                    } catch (NoSuchMethodException ex)
+                    {
+                        // ignore if method cleaner or clean is not available, like on Android
                     }
                     return null;
                 }
@@ -414,5 +420,29 @@ public class Helper
     public static final double keepIn( double value, double min, double max )
     {
         return Math.max(min, Math.min(value, max));
+    }
+
+    /**
+     * Round the value to the specified exponent
+     */
+    public static double round( double value, int exponent )
+    {
+        double factor = Math.pow(10, exponent);
+        return Math.round(value * factor) / factor;
+    }
+
+    public static final double round6( double value )
+    {
+        return Math.round(value * 1e6) / 1e6;
+    }
+    
+    public static final double round4( double value )
+    {
+        return Math.round(value * 1e4) / 1e4;
+    }
+
+    public static final double round2( double value )
+    {
+        return Math.round(value * 100) / 100;
     }
 }

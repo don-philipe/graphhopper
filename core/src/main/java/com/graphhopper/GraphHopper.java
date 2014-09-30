@@ -28,14 +28,16 @@ import com.graphhopper.routing.util.*;
 import com.graphhopper.storage.*;
 import com.graphhopper.storage.index.*;
 import com.graphhopper.util.*;
-import com.graphhopper.util.shapes.GHPlace;
+import com.graphhopper.util.shapes.GHPoint;
 
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,9 +55,13 @@ public class GraphHopper implements GraphHopperAPI
         CmdArgs args = CmdArgs.read(strs);
         GraphHopper hopper = new GraphHopper().init(args);
         hopper.importOrLoad();
-        RoutingAlgorithmSpecialAreaTests tests = new RoutingAlgorithmSpecialAreaTests(hopper);
         if (args.getBool("graph.testIT", false))
+        {
+            // important: use osmreader.wayPointMaxDistance=0
+            RoutingAlgorithmSpecialAreaTests tests = new RoutingAlgorithmSpecialAreaTests(hopper);
             tests.start();
+        }
+        hopper.close();
     }
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -65,7 +71,7 @@ public class GraphHopper implements GraphHopperAPI
     private DAType dataAccessType = DAType.RAM_STORE;
     private boolean sortGraph = false;
     boolean removeZipped = true;
-    private int dimension = 2;
+    private boolean elevation = false;
     // for routing
     private boolean simplifyRequest = true;
     // for index
@@ -79,10 +85,10 @@ public class GraphHopper implements GraphHopperAPI
     private boolean doPrepare = true;
     private boolean chEnabled = true;
     private String chWeighting = "fastest";
-    private int periodicUpdates = 20;
-    private int lazyUpdates = 10;
-    private int neighborUpdates = 20;
-    private double logMessages = 20;
+    private int periodicUpdates = -1;
+    private int lazyUpdates = -1;
+    private int neighborUpdates = -1;
+    private double logMessages = -1;
     // for OSM import
     private String osmFile;
     private EncodingManager encodingManager;
@@ -93,6 +99,7 @@ public class GraphHopper implements GraphHopperAPI
     private boolean enableInstructions = true;
     private boolean calcPoints = true;
     private boolean fullyLoaded = false;
+    private final TranslationMap trMap = new TranslationMap().doImport();
     private ElevationProvider eleProvider = ElevationProvider.NOOP;
 
     public GraphHopper()
@@ -100,9 +107,9 @@ public class GraphHopper implements GraphHopperAPI
     }
 
     /**
-     * For testing
+     * For testing only
      */
-    GraphHopper loadGraph( GraphStorage g )
+    protected GraphHopper loadGraph( GraphStorage g )
     {
         this.graph = g;
         fullyLoaded = true;
@@ -129,9 +136,9 @@ public class GraphHopper implements GraphHopperAPI
     public GraphHopper setElevationProvider( ElevationProvider eleProvider )
     {
         if (eleProvider == null || eleProvider == ElevationProvider.NOOP)
-            set3D(false);
+            setElevation(false);
         else
-            set3D(true);
+            setElevation(true);
         this.eleProvider = eleProvider;
         return this;
     }
@@ -287,20 +294,17 @@ public class GraphHopper implements GraphHopperAPI
     /**
      * @return true if storing and fetching elevation data is enabled. Default is false
      */
-    public boolean is3D()
+    public boolean hasElevation()
     {
-        return dimension == 3;
+        return elevation;
     }
 
     /**
      * Enable storing and fetching elevation data. Default is false
      */
-    public GraphHopper set3D( boolean is3D )
+    public GraphHopper setElevation( boolean includeElevation )
     {
-        if (is3D)
-            this.dimension = 3;
-        else
-            this.dimension = 2;
+        this.elevation = includeElevation;
         return this;
     }
 
@@ -435,16 +439,27 @@ public class GraphHopper implements GraphHopperAPI
         return this;
     }
 
+    public TranslationMap getTranslationMap()
+    {
+        return trMap;
+    }
+
     /*
      * Command line configuration overwrites the ones in the config file
      */
-    protected CmdArgs mergeArgsFromConfig( CmdArgs args ) throws IOException
+    protected CmdArgs mergeArgsFromConfig( CmdArgs args )
     {
         if (!Helper.isEmpty(args.get("config", "")))
         {
-            CmdArgs tmp = CmdArgs.readFromConfig(args.get("config", ""), "graphhopper.config");
-            tmp.merge(args);
-            return tmp;
+            try
+            {
+                CmdArgs tmp = CmdArgs.readFromConfig(args.get("config", ""), "graphhopper.config");
+                tmp.merge(args);
+                return tmp;
+            } catch (Exception ex)
+            {
+                throw new RuntimeException(ex);
+            }
         }
         return args;
     }
@@ -454,7 +469,7 @@ public class GraphHopper implements GraphHopperAPI
      * args) ala CmdArgs.read(args) or via configuration file ala
      * CmdArgs.readFromConfig("config.properties", "graphhopper.config")
      */
-    public GraphHopper init( CmdArgs args ) throws IOException
+    public GraphHopper init( CmdArgs args )
     {
         args = mergeArgsFromConfig(args);
         String tmpOsmFile = args.get("osmreader.osm", "");
@@ -473,7 +488,6 @@ public class GraphHopper implements GraphHopperAPI
         // graph
         setGraphHopperLocation(graphHopperFolder);
         defaultSegmentSize = args.getInt("graph.dataaccess.segmentSize", defaultSegmentSize);
-        dimension = args.getInt("graph.dimension", dimension);
 
         String graphDATypeStr = args.get("graph.dataaccess", "RAM_STORE");
         dataAccessType = DAType.fromString(graphDATypeStr);
@@ -655,11 +669,11 @@ public class GraphHopper implements GraphHopperAPI
         GHDirectory dir = new GHDirectory(ghLocation, dataAccessType);
 
         if (chEnabled)
-            graph = new LevelGraphStorage(dir, encodingManager, is3D());
+            graph = new LevelGraphStorage(dir, encodingManager, hasElevation());
         else if (turnCosts)
-            graph = new GraphHopperStorage(dir, encodingManager, is3D(), new TurnCostStorage());
+            graph = new GraphHopperStorage(dir, encodingManager, hasElevation(), new TurnCostStorage());
         else
-            graph = new GraphHopperStorage(dir, encodingManager, is3D());
+            graph = new GraphHopperStorage(dir, encodingManager, hasElevation());
 
         graph.setSegmentSize(defaultSegmentSize);
         if (!graph.loadExisting())
@@ -703,13 +717,23 @@ public class GraphHopper implements GraphHopperAPI
         prepare.setGraph(graph);
     }
 
-    protected Weighting createWeighting( String weighting, FlagEncoder encoder )
+    /**
+     * @param weighting specify e.g. fastest or shortest (or empty for default)
+     * @param encoder
+     * @return the weighting to be used for route calculation
+     */
+    public Weighting createWeighting( String weighting, FlagEncoder encoder )
     {
         // ignore case
         weighting = weighting.toLowerCase();
-        if ("shortest".equals(weighting))
-            return new ShortestWeighting();
-        return new FastestWeighting(encoder);
+        if ("fastest".equals(weighting))
+        {
+            if (encoder instanceof BikeCommonFlagEncoder)
+                return new PriorityWeighting((BikeCommonFlagEncoder) encoder);
+            else
+                return new FastestWeighting(encoder);
+        }
+        return new ShortestWeighting();
     }
 
     @Override
@@ -718,46 +742,78 @@ public class GraphHopper implements GraphHopperAPI
         if (graph == null || !fullyLoaded)
             throw new IllegalStateException("Call load or importOrLoad before routing");
 
-        GHResponse rsp = new GHResponse();
-        if (!encodingManager.supports(request.getVehicle()))
+        if (graph.isClosed())
+            throw new IllegalStateException("You need to create a new GraphHopper instance as it is already closed");
+
+        GHResponse response = new GHResponse();
+        List<Path> paths = getPaths(request, response);
+        if (response.hasErrors())
+            return response;
+
+        enableInstructions = request.getHint("instructions", enableInstructions);
+        calcPoints = request.getHint("calcPoints", calcPoints);
+        simplifyRequest = request.getHint("simplifyRequest", simplifyRequest);
+        double minPathPrecision = request.getHint("douglas.minprecision", 1d);
+        Locale locale = request.getLocale();
+        DouglasPeucker peucker = new DouglasPeucker().setMaxDistance(minPathPrecision);
+
+        new PathMerger().
+                setCalcPoints(calcPoints).
+                setDouglasPeucker(peucker).
+                setEnableInstructions(enableInstructions).
+                setSimplifyRequest(simplifyRequest && minPathPrecision > 0).
+                doWork(response, paths, trMap.getWithFallBack(locale));
+        return response;
+    }
+
+    protected List<Path> getPaths( GHRequest request, GHResponse rsp )
+    {
+        String vehicle = request.getVehicle();
+        if (vehicle.isEmpty())
+            vehicle = encodingManager.getSingle().toString();
+
+        if (!encodingManager.supports(vehicle))
         {
-            rsp.addError(new IllegalArgumentException("Vehicle " + request.getVehicle() + " unsupported. Supported are: "
-                    + getEncodingManager()));
-            return rsp;
+            rsp.addError(new IllegalArgumentException("Vehicle " + vehicle + " unsupported. "
+                    + "Supported are: " + getEncodingManager()));
+            return Collections.emptyList();
         }
 
-        List<GHPlace> places = request.getPlaces();
-        if (places.size() < 2)
+        List<GHPoint> points = request.getPoints();
+        if (points.size() < 2)
         {
-            rsp.addError(new IllegalStateException("At least 2 points has to be specified, but was:" + places.size()));
-            return rsp;
+            rsp.addError(new IllegalStateException("At least 2 points has to be specified, but was:" + points.size()));
+            return Collections.emptyList();
         }
 
-        FlagEncoder encoder = encodingManager.getEncoder(request.getVehicle());
+        FlagEncoder encoder = encodingManager.getEncoder(vehicle);
         EdgeFilter edgeFilter = new DefaultEdgeFilter(encoder);
-        GHPlace startPlace = request.getPlaces().get(0);
+        GHPoint startPoint = points.get(0);
         StopWatch sw = new StopWatch().start();
-        QueryResult fromRes = locationIndex.findClosest(startPlace.lat, startPlace.lon, edgeFilter);
+        QueryResult fromRes = locationIndex.findClosest(startPoint.lat, startPoint.lon, edgeFilter);
+        String debug = "idLookup[0]:" + sw.stop().getSeconds() + "s";
         sw.stop();
         if (!fromRes.isValid())
-            rsp.addError(new IllegalArgumentException("Cannot find point 0: " + startPlace));
-
-        List<Path> paths = new ArrayList<Path>(places.size() - 1);
-        String debug = "";
-        for (int placeIndex = 1; placeIndex < request.getPlaces().size(); placeIndex++)
         {
-            GHPlace place = request.getPlaces().get(placeIndex);
-            sw.start();
-            QueryResult toRes = locationIndex.findClosest(place.lat, place.lon, edgeFilter);
-            debug += "[" + placeIndex + "]";
-            debug += ", idLookup:" + sw.stop().getSeconds() + "s";
-            if (!toRes.isValid())
-                rsp.addError(new IllegalArgumentException("Cannot find point " + placeIndex + ": " + place));
+            rsp.addError(new IllegalArgumentException("Cannot find point 0: " + startPoint));
+            return Collections.emptyList();
+        }
 
-            if (rsp.hasErrors())
-                return rsp;
+        List<Path> paths = new ArrayList<Path>(points.size() - 1);
+        for (int placeIndex = 1; placeIndex < points.size(); placeIndex++)
+        {
+            GHPoint point = points.get(placeIndex);
+            sw = new StopWatch().start();
+            QueryResult toRes = locationIndex.findClosest(point.lat, point.lon, edgeFilter);
+            debug += ", [" + placeIndex + "] idLookup:" + sw.stop().getSeconds() + "s";
+            if (!toRes.isValid())
+            {
+                rsp.addError(new IllegalArgumentException("Cannot find point " + placeIndex + ": " + point));
+                break;
+            }
 
             sw = new StopWatch().start();
+            String algoStr = request.getAlgorithm().isEmpty() ? "dijkstrabi" : request.getAlgorithm();
             RoutingAlgorithm algo = null;
             if (chEnabled)
             {
@@ -765,20 +821,20 @@ public class GraphHopper implements GraphHopperAPI
                     throw new IllegalStateException("Preparation object is null. CH-preparation wasn't done or did you "
                             + "forgot to call disableCHShortcuts()?");
 
-                if (request.getAlgorithm().equals("dijkstrabi"))
+                if (algoStr.equals("dijkstrabi"))
                     algo = prepare.createAlgo();
-                else if (request.getAlgorithm().equals("astarbi"))
+                else if (algoStr.equals("astarbi"))
                     algo = ((PrepareContractionHierarchies) prepare).createAStar();
                 else
                 {
                     rsp.addError(new IllegalStateException(
                             "Only dijkstrabi and astarbi is supported for LevelGraph (using contraction hierarchies)!"));
-                    return rsp;
+                    break;
                 }
             } else
             {
                 Weighting weighting = createWeighting(request.getWeighting(), encoder);
-                prepare = NoOpAlgorithmPreparation.createAlgoPrepare(graph, request.getAlgorithm(), encoder, weighting);
+                prepare = NoOpAlgorithmPreparation.createAlgoPrepare(graph, algoStr, encoder, weighting);
                 algo = prepare.createAlgo();
             }
 
@@ -788,29 +844,20 @@ public class GraphHopper implements GraphHopperAPI
             Path path = algo.calcPath(fromRes, toRes);
             if (path.getMillis() < 0)
                 throw new RuntimeException("Time was negative. Please report as bug and include:" + request);
-                
+
             paths.add(path);
             debug += ", " + algo.getName() + "-routing:" + sw.stop().getSeconds() + "s, " + path.getDebugInfo();
             fromRes = toRes;
         }
 
-        enableInstructions = request.getHint("instructions", enableInstructions);
-        calcPoints = request.getHint("calcPoints", calcPoints);
-        simplifyRequest = request.getHint("simplifyRequest", simplifyRequest);
-        double minPathPrecision = request.getHint("douglas.minprecision", 1d);
-        DouglasPeucker peucker = new DouglasPeucker().setMaxDistance(minPathPrecision);
+        if (rsp.hasErrors())
+            return Collections.emptyList();
+
+        if (points.size() - 1 != paths.size())
+            throw new RuntimeException("There should be exactly one more places than paths. places:" + points.size() + ", paths:" + paths.size());
+
         rsp.setDebugInfo(debug);
-
-        if (places.size() - 1 != paths.size())
-            throw new RuntimeException("There should be exactly one more places than paths. places:" + places.size() + ", paths:" + paths.size());
-
-        new PathMerger().
-                setCalcPoints(calcPoints).
-                setDouglasPeucker(peucker).
-                setEnableInstructions(enableInstructions).
-                setSimplifyRequest(simplifyRequest && minPathPrecision > 0).
-                doWork(rsp, paths);
-        return rsp;
+        return paths;
     }
 
     protected LocationIndex createLocationIndex( Directory dir )

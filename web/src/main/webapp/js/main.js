@@ -6,7 +6,7 @@
 var tmpArgs = parseUrlWithHisto();
 var host = tmpArgs["host"];
 // var host = "http://graphhopper.com/api/1";
-if (host == null) {
+if (!host) {
     if (location.port === '') {
         host = location.protocol + '//' + location.hostname;
     } else {
@@ -102,13 +102,12 @@ $(document).ready(function(e) {
                 bounds.maxLon = tmp[2];
                 bounds.maxLat = tmp[3];
                 var vehiclesDiv = $("#vehicles");
-                function createButton(vehicle) {
-                    var vehicle = vehicle.toLowerCase();
-                    var button = $("<button class='vehicle-btn' title='" + tr(vehicle) + "'/>")
+                function createButton(vehicle) {                    
+                    var button = $("<button class='vehicle-btn' title='" + tr(vehicle) + "'/>");
                     button.attr('id', vehicle);
                     button.html("<img src='img/" + vehicle + ".png' alt='" + tr(vehicle) + "'></img>");
                     button.click(function() {
-                        ghRequest.vehicle = vehicle;
+                        ghRequest.initVehicle(vehicle);
                         resolveFrom();
                         resolveTo();
                         routeLatLng(ghRequest);
@@ -116,13 +115,14 @@ $(document).ready(function(e) {
                     return button;
                 }
 
-                if (json.supported_vehicles) {
-                    var vehicles = json.supported_vehicles;
+                if (json.features) {
+                    ghRequest.features = json.features;
+                    var vehicles = Object.keys(json.features);
                     if (vehicles.length > 0)
-                        ghRequest.vehicle = vehicles[0];
+                        ghRequest.initVehicle(vehicles[0]);
 
-                    for (var i = 0; i < vehicles.length; i++) {
-                        vehiclesDiv.append(createButton(vehicles[i]));
+                    for (var key in json.features) {
+                        vehiclesDiv.append(createButton(key.toLowerCase()));
                     }
                 }
 
@@ -352,6 +352,7 @@ function setFlag(coord, isFrom) {
             routingLayer.clearLayers();
             // inconsistent leaflet API: event.target.getLatLng vs. mouseEvent.latlng?
             var latlng = e.target.getLatLng();
+            hideAutoComplete();
             if (isFrom) {
                 ghRequest.from.setCoord(latlng.lat, latlng.lng);
                 resolveFrom();
@@ -384,9 +385,11 @@ function resolve(fromOrTo, locCoord) {
     return createAmbiguityList(locCoord).done(function(arg1) {
         var errorDiv = $("#" + fromOrTo + "ResolveError");
         errorDiv.empty();
-        
+
         if (locCoord.error)
             errorDiv.text(locCoord.error);
+        else
+            errorDiv.text("");
 
         $("#" + fromOrTo + "Indicator").hide();
         $("#" + fromOrTo + "Flag").show();
@@ -647,7 +650,7 @@ function routeLatLng(request, doQuery) {
             "geometry": path.points
         };
 
-        if (path.points_dimension === 3) {
+        if (request.hasElevation()) {
             if (elevationControl === null) {
                 elevationControl = L.control.elevation({
                     position: "bottomright",
@@ -711,7 +714,7 @@ function routeLatLng(request, doQuery) {
             $("#info").append(instructionsElement);
 
             if (partialInstr) {
-                var moreDiv = $("<button id='moreButton'>More...</button>");
+                var moreDiv = $("<button id='moreButton'>"+tr("moreButton")+"..</button>");
                 moreDiv.click(function() {
                     moreDiv.remove();
                     for (var m = len; m < path.instructions.length; m++) {
@@ -731,7 +734,7 @@ function routeLatLng(request, doQuery) {
                 hiddenDiv.toggle();
             });
             $("#info").append(toggly);
-            var infoStr = "took: " + round(json.info.took, 1000) + "s"
+            var infoStr = "took: " + round(json.info.took / 1000, 1000) + "s"
                     + ", points: " + path.points.coordinates.length;
 
             hiddenDiv.append("<span>" + infoStr + "</span>");
@@ -823,6 +826,12 @@ function addInstruction(main, instr, instrIndex, lngLat) {
     else
         throw "did not found sign " + sign;
     var title = instr.text;
+    if(instr.annotationText) {
+        if(!title)
+            title = instr.annotationText;
+        else
+            title = title + ", " + instr.annotationText;
+    }
     var distance = instr.distance;
     var str = "<td class='instr_title'>" + title + "</td>";
 
@@ -892,9 +901,19 @@ function parseUrl(query) {
         var value = vars[i].substring(indexPos + 1);
         value = decodeURIComponent(value.replace(/\+/g, ' '));
 
-        if (typeof res[key] === "undefined")
-            res[key] = value;
-        else if (typeof res[key] === "string") {
+        if (typeof res[key] === "undefined") {
+            if(value === 'true')
+                res[key] = true;
+            else if(value === 'false')
+                res[key] = false;
+            else {
+                var tmp = Number(value);
+                if(isNaN(tmp))
+                    res[key] = value;
+                else
+                    res[key] = Number(value);
+            }
+        } else if (typeof res[key] === "string") {
             var arr = [res[key], value];
             res[key] = arr;
         } else
@@ -987,6 +1006,7 @@ function initI18N() {
     $('#searchButton').attr("value", tr("searchButton"));
     $('#fromInput').attr("placeholder", tr("fromHint"));
     $('#toInput').attr("placeholder", tr("toHint"));
+    $('#gpxExportButton').attr("title", tr("gpxExportButton"));
 }
 
 function exportGPX() {
@@ -999,19 +1019,24 @@ function getAutoCompleteDiv(fromOrTo) {
     return $('#' + fromOrTo + 'Input');
 }
 
+function hideAutoComplete() {
+    getAutoCompleteDiv("from").autocomplete().hide();
+    getAutoCompleteDiv("to").autocomplete().hide();
+}
+
 function formatValue(orig, query) {
     var pattern = '(' + $.Autocomplete.utils.escapeRegExChars(query) + ')';
     return orig.replace(new RegExp(pattern, 'gi'), '<strong>$1<\/strong>');
 }
 
-function setAutoCompleteList(fromOrTo, ghRequestLoc) {
+function setAutoCompleteList(fromOrTo) {
     var isFrom = fromOrTo === "from";
     var pointIndex = isFrom ? 1 : 2;
     var myAutoDiv = getAutoCompleteDiv(fromOrTo);
-    
+
     var options = {
         containerClass: "complete-" + pointIndex,
-        /* as we use jsonp we need to set the timeout to a small value */        
+        /* as we use can potentially use jsonp we need to set the timeout to a small value */
         timeout: 1000,
         /* avoid too many requests when typing quickly */
         deferRequestBy: 5,
@@ -1022,7 +1047,12 @@ function setAutoCompleteList(fromOrTo, ghRequestLoc) {
         triggerSelectOnValidInput: false,
         autoSelectFirst: false,
         paramName: "q",
-        dataType: "jsonp",
+        dataType: ghRequest.dataType,
+        onSearchStart: function(params) {
+            // query server only if not a parsable point (i.e. format lat,lon)
+            var val = new GHInput(params.q).lat;
+            return val === undefined;
+        },
         serviceUrl: function() {
             return ghRequest.createGeocodeURL();
         },
@@ -1050,21 +1080,27 @@ function setAutoCompleteList(fromOrTo, ghRequestLoc) {
                 req = ghRequest.from;
 
             myAutoDiv.autocomplete().disable();
-            
+
             var point = suggestion.data.point;
-            req.setCoord(point.lat, point.lng);            
-            
-            req.input = suggestion.value;            
+            req.setCoord(point.lat, point.lng);
+
+            req.input = suggestion.value;
             if (ghRequest.from.isResolved() && ghRequest.to.isResolved())
                 routeLatLng(ghRequest);
             else
                 focus(req, 15, isFrom);
-            
+
             myAutoDiv.autocomplete().enable();
         }
     };
-    
+
     myAutoDiv.autocomplete(options);
+    $("#" + fromOrTo + "Input").focusout(function() {
+        myAutoDiv.autocomplete().disable();
+    });
+    $("#" + fromOrTo + "Input").focusin(function() {
+        myAutoDiv.autocomplete().enable();
+    });
 }
 
 function dataToHtml(data, query) {
@@ -1096,15 +1132,15 @@ function dataToText(data) {
     var text = "";
     if (data.name)
         text += data.name;
-    
+
     if (data.postcode)
         text = insComma(text, data.postcode);
-    
+
     // make sure name won't be duplicated
     if (data.city && text.indexOf(data.city) < 0)
         text = insComma(text, data.city);
-    
+
     if (data.country && text.indexOf(data.country) < 0)
-        text = insComma(text, data.country);       
+        text = insComma(text, data.country);
     return text;
 }

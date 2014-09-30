@@ -81,23 +81,22 @@ public class RoutingAlgorithmSpecialAreaTests
 
         for (Entry<AlgorithmPreparation, LocationIndex> entry : prepares)
         {
-            AlgorithmPreparation prepare = entry.getKey();
-            LocationIndex currIdx = entry.getValue();
+            AlgorithmPreparation prepare = entry.getKey();            
             int failed = testCollector.errors.size();
 
-            OneRun or = new OneRun(50.0314, 10.5105, 50.0303, 10.5070, 570, 22);
+            OneRun or = new OneRun(50.0314, 10.5105, 50.0303, 10.5070, 571, 22);
             testCollector.assertDistance(prepare, or.getList(idx, ef), or);
-            or = new OneRun(49.51451, 9.967346, 50.2920, 10.4650, 107545, 1712);
+            or = new OneRun(49.51451, 9.967346, 50.2920, 10.4650, 107909, 1929);
             testCollector.assertDistance(prepare, or.getList(idx, ef), or);
-            or = new OneRun(50.0780, 9.1570, 49.5860, 9.9750, 91715, 1299);
+            or = new OneRun(50.0780, 9.1570, 49.5860, 9.9750, 95562, 1556);
             testCollector.assertDistance(prepare, or.getList(idx, ef), or);
-            or = new OneRun(50.2800, 9.7190, 49.8960, 10.3890, 76411, 1406);
+            or = new OneRun(50.2800, 9.7190, 49.8960, 10.3890, 81016, 1724);
             testCollector.assertDistance(prepare, or.getList(idx, ef), or);
-            or = new OneRun(49.8020, 9.2470, 50.4940, 10.1970, 125633, 2253);
+            or = new OneRun(49.8020, 9.2470, 50.4940, 10.1970, 134767, 2295);
             testCollector.assertDistance(prepare, or.getList(idx, ef), or);
-            or = new OneRun(49.72449, 9.23482, 50.4140, 10.2750, 137260.8, 2401);
+            or = new OneRun(49.72449, 9.23482, 50.4140, 10.2750, 140809, 2680);
             testCollector.assertDistance(prepare, or.getList(idx, ef), or);
-            or = new OneRun(50.1100, 10.7530, 49.6500, 10.3410, 73530, 1462);
+            or = new OneRun(50.1100, 10.7530, 49.6500, 10.3410, 77381, 1863);
             testCollector.assertDistance(prepare, or.getList(idx, ef), or);
 
             System.out.println("unterfranken " + prepare.createAlgo() + ": " + (testCollector.errors.size() - failed) + " failed");
@@ -119,12 +118,12 @@ public class RoutingAlgorithmSpecialAreaTests
     {
         // List<Entry<AlgorithmPreparation, LocationIndex>> prepare = new ArrayList<Entry<AlgorithmPreparation, LocationIndex>>();
         List<Entry<AlgorithmPreparation, LocationIndex>> prepare = new ArrayList<Entry<AlgorithmPreparation, LocationIndex>>();
-        prepare.add(new ME(createAlgoPrepare(g, "astar", encoder, weighting), idx));
-        // prepare.add(new ME(createAlgoPrepare(g, "dijkstraOneToMany", encoder, weighting), idx));
-        prepare.add(new ME(createAlgoPrepare(g, "astarbi", encoder, weighting), idx));
-        prepare.add(new ME(createAlgoPrepare(g, "dijkstraNativebi", encoder, weighting), idx));
+//        prepare.add(new ME(createAlgoPrepare(g, "astar", encoder, weighting), idx));
+//        // prepare.add(new ME(createAlgoPrepare(g, "dijkstraOneToMany", encoder, weighting), idx));
+//        prepare.add(new ME(createAlgoPrepare(g, "astarbi", encoder, weighting), idx));
+//        prepare.add(new ME(createAlgoPrepare(g, "dijkstraNativebi", encoder, weighting), idx));
         prepare.add(new ME(createAlgoPrepare(g, "dijkstrabi", encoder, weighting), idx));
-        prepare.add(new ME(createAlgoPrepare(g, "dijkstra", encoder, weighting), idx));
+//        prepare.add(new ME(createAlgoPrepare(g, "dijkstra", encoder, weighting), idx));
 
         if (withCh)
         {

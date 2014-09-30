@@ -34,6 +34,7 @@
                     div.className = containerClass;
                     div.style.position = 'absolute';
                     div.style.display = 'none';
+					div.style.cursor = 'pointer';
                     return div;
                 }
             };
@@ -194,7 +195,7 @@
             var that = this;
             that.fixPosition();
             if (that.options.minChars <= that.el.val().length) {
-                that.onValueChange();
+                // that.onValueChange();
             }
         },
 

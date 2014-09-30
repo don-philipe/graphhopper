@@ -70,8 +70,8 @@ function ensureMaven {
       if [ ! -f "$MAVEN_HOME/bin/mvn" ]; then
         echo "No Maven found in the PATH. Now downloading+installing it to $MAVEN_HOME"
         cd "$GH_HOME"
-        MVN_PACKAGE=apache-maven-3.2.1
-        wget -O maven.zip http://www.eu.apache.org/dist/maven/maven-3/3.2.1/binaries/$MVN_PACKAGE-bin.zip
+        MVN_PACKAGE=apache-maven-3.2.3
+        wget -O maven.zip http://www.eu.apache.org/dist/maven/maven-3/3.2.3/binaries/$MVN_PACKAGE-bin.zip
         unzip maven.zip
         mv $MVN_PACKAGE maven
         rm maven.zip
@@ -137,7 +137,7 @@ elif [ "x$ACTION" = "xextract" ]; then
  
 elif [ "x$ACTION" = "xandroid" ]; then
  prepareEclipse
- "$MAVEN_HOME/bin/mvn" --projects android install android:deploy android:run
+ "$MAVEN_HOME/bin/mvn" -P include-android --projects android install android:deploy android:run
  exit
 fi
 
@@ -238,8 +238,8 @@ elif [ "x$ACTION" = "ximport" ]; then
 
 elif [ "x$ACTION" = "xtest" ]; then
  "$JAVA" $JAVA_OPTS -cp "$JAR" $GH_CLASS printVersion=true config=$CONFIG \
-       graph.location="$GRAPH" osmreader.osm="$OSM_FILE" prepare.chShortcuts=false \
-       graph.testIT=true
+ 	osmreader.wayPointMaxDistance=0 graph.location="$GRAPH" osmreader.osm="$OSM_FILE" prepare.chShortcuts=false \
+	graph.testIT=true
 
 
 elif [ "x$ACTION" = "xtorture" ]; then

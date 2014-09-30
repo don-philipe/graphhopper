@@ -45,6 +45,7 @@ public class DijkstraBidirectionRef extends AbstractBidirAlgo
     protected EdgeEntry currFrom;
     protected EdgeEntry currTo;
     protected PathBidirRef bestPath;
+    private boolean updateBestPath = true;
 
     public DijkstraBidirectionRef( Graph graph, FlagEncoder encoder, Weighting weighting )
     {
@@ -70,7 +71,7 @@ public class DijkstraBidirectionRef extends AbstractBidirAlgo
         if (currTo != null)
         {
             bestWeightMapOther = bestWeightMapTo;
-            updateShortest(currTo, from);
+            updateBestPath(currTo, from);
         }
     }
 
@@ -83,14 +84,15 @@ public class DijkstraBidirectionRef extends AbstractBidirAlgo
         if (currFrom != null)
         {
             bestWeightMapOther = bestWeightMapFrom;
-            updateShortest(currFrom, to);
+            updateBestPath(currFrom, to);
         }
     }
 
     @Override
-    protected void initPath()
+    protected Path createAndInitPath()
     {
         bestPath = new PathBidirRef(graph, flagEncoder);
+        return bestPath;
     }
 
     @Override
@@ -107,7 +109,7 @@ public class DijkstraBidirectionRef extends AbstractBidirAlgo
     }
 
     @Override
-    protected boolean fillEdgesFrom()
+    public boolean fillEdgesFrom()
     {
         if (openSetFrom.isEmpty())
             return false;
@@ -115,19 +117,19 @@ public class DijkstraBidirectionRef extends AbstractBidirAlgo
         currFrom = openSetFrom.poll();
         bestWeightMapOther = bestWeightMapTo;
         fillEdges(currFrom, openSetFrom, bestWeightMapFrom, outEdgeExplorer, false);
-        visitedFromCount++;
+        visitedCountFrom++;
         return true;
     }
 
     @Override
-    protected boolean fillEdgesTo()
+    public boolean fillEdgesTo()
     {
         if (openSetTo.isEmpty())
             return false;
         currTo = openSetTo.poll();
         bestWeightMapOther = bestWeightMapFrom;
         fillEdges(currTo, openSetTo, bestWeightMapTo, inEdgeExplorer, true);
-        visitedToCount++;
+        visitedCountTo++;
         return true;
     }
 
@@ -136,7 +138,7 @@ public class DijkstraBidirectionRef extends AbstractBidirAlgo
     // => when scanning an arc (v, w) in the forward search and w is scanned in the reverseOrder 
     //    search, update extractPath = μ if df (v) + (v, w) + dr (w) < μ            
     @Override
-    protected boolean finished()
+    public boolean finished()
     {
         if (finishedFrom || finishedTo)
             return true;
@@ -176,12 +178,13 @@ public class DijkstraBidirectionRef extends AbstractBidirAlgo
                 prioQueue.add(de);
             }
 
-            updateShortest(de, adjNode);
+            if (updateBestPath)
+                updateBestPath(de, adjNode);
         }
     }
 
     @Override
-    protected void updateShortest( EdgeEntry shortestEE, int currLoc )
+    protected void updateBestPath( EdgeEntry shortestEE, int currLoc )
     {
         EdgeEntry entryOther = bestWeightMapOther.get(currLoc);
         if (entryOther == null)
@@ -194,23 +197,58 @@ public class DijkstraBidirectionRef extends AbstractBidirAlgo
             bestPath.setSwitchToFrom(bestWeightMapFrom == bestWeightMapOther);
             bestPath.setEdgeEntry(shortestEE);
             bestPath.setWeight(newShortest);
-            bestPath.edgeTo = entryOther;
+            bestPath.setEdgeEntryTo(entryOther);
         }
-    }
-
-    public EdgeEntry shortestWeightFrom( int nodeId )
-    {
-        return bestWeightMapFrom.get(nodeId);
-    }
-
-    public EdgeEntry shortestWeightTo( int nodeId )
-    {
-        return bestWeightMapTo.get(nodeId);
     }
 
     @Override
     public String getName()
     {
         return "dijkstrabi";
+    }
+
+    TIntObjectMap<EdgeEntry> getBestFromMap()
+    {
+        return bestWeightMapFrom;
+    }
+
+    TIntObjectMap<EdgeEntry> getBestToMap()
+    {
+        return bestWeightMapTo;
+    }
+
+    void setBestOtherMap( TIntObjectMap<EdgeEntry> other )
+    {
+        bestWeightMapOther = other;
+    }
+
+    void setFromDataStructures( DijkstraBidirectionRef dijkstra )
+    {
+        openSetFrom = dijkstra.openSetFrom;
+        bestWeightMapFrom = dijkstra.bestWeightMapFrom;
+        finishedFrom = dijkstra.finishedFrom;
+        currFrom = dijkstra.currFrom;
+        visitedCountFrom = dijkstra.visitedCountFrom;
+        // outEdgeExplorer
+    }
+
+    void setToDataStructures( DijkstraBidirectionRef dijkstra )
+    {
+        openSetTo = dijkstra.openSetTo;
+        bestWeightMapTo = dijkstra.bestWeightMapTo;
+        finishedTo = dijkstra.finishedTo;
+        currTo = dijkstra.currTo;
+        visitedCountTo = dijkstra.visitedCountTo;
+        // inEdgeExplorer
+    }
+
+    void setUpdateBestPath( boolean b )
+    {
+        updateBestPath = b;
+    }
+
+    void setBestPath( PathBidirRef bestPath )
+    {
+        this.bestPath = bestPath;
     }
 }

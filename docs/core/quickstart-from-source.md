@@ -1,20 +1,21 @@
 ## Try out
 
 For a start which requires only the JRE have a look [here](../web/quickstart.md). 
-Windows user can find a quick guide [here](https://github.com/graphhopper/graphhopper/wiki/Windows). 
+Windows user can find a quick guide [here](./windows-setup.md). 
 
 Now, before you proceed install git and jdk6, 7 or 8. Then do:
 
 ```bash
 $ git clone git://github.com/graphhopper/graphhopper.git
-$ cd graphhopper; ./graphhopper.sh web europe_germany_berlin.pbf
+$ cd graphhopper; git checkout 0.3
+$ ./graphhopper.sh web europe_germany_berlin.pbf
 now go to http://localhost:8989/
 ```
 
   1. These steps make the Berlin area routable. It'll download and unzip the osm file for you.
   2. It builds the graphhopper jars. If Maven is not available it will automatically download it.
   3. Then it creates routable files for graphhopper in the folder europe_germany_berlin-gh. It'll skip this step if files are already present.
-  4. Also check the instructions for [Android](https://github.com/graphhopper/graphhopper/wiki/Android)
+  4. Also check the instructions for [Android](../android/index.md)
 
 For you favourite area do
 
@@ -30,10 +31,29 @@ Open the project with NetBeans or enable Maven in your IDE.
 [Maven](http://maven.apache.org/download.cgi) is downloaded to ```graphhopper/maven``` if not 
 installed when executing graphhopper.sh.
 
-Have a look into the [Java API documentation](./) 
-for further details.
+Have a look into the [Java API documentation](./) for further details.
 
-For more details on Android-usage have a look into this [Android site](https://github.com/graphhopper/graphhopper/wiki/Android)
+For more details on Android-usage have a look into this [Android site](../android/index.md)
+
+### Library
+
+To use an unreleased snapshot version of GraphHopper you need the following snippet in your pom.xml
+as those versions are not in maven central:
+
+```xml
+    <repositories>
+        <repository>
+            <id>sonatype-oss-public</id>
+            <url>https://oss.sonatype.org/content/groups/public/</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+```
 
 ### Debug
 

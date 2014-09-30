@@ -17,11 +17,12 @@
  */
 package com.graphhopper;
 
+import com.graphhopper.routing.util.EdgeFilter;
 import com.graphhopper.routing.util.EncodingManager;
+import com.graphhopper.storage.index.QueryResult;
 import com.graphhopper.util.CmdArgs;
 import com.graphhopper.util.Helper;
 import com.graphhopper.util.Instruction;
-import com.graphhopper.util.shapes.GHPlace;
 import com.graphhopper.util.shapes.GHPoint;
 import java.io.File;
 import java.io.IOException;
@@ -50,28 +51,48 @@ public class GraphHopperTest
     @After
     public void tearDown()
     {
-        instance.close();
+        if (instance != null)
+            instance.close();
         Helper.removeDir(new File(ghLoc));
     }
 
     @Test
     public void testLoadOSM()
     {
-        instance = new GraphHopper().setInMemory(true).
+        GraphHopper closableInstance = new GraphHopper().setInMemory(true).
                 setEncodingManager(new EncodingManager("CAR")).
                 setGraphHopperLocation(ghLoc).
                 setOSMFile(testOsm);
-        instance.importOrLoad();
-        GHResponse ph = instance.route(new GHRequest(51.2492152, 9.4317166, 51.2, 9.4));
+        closableInstance.importOrLoad();
+        GHResponse ph = closableInstance.route(new GHRequest(51.2492152, 9.4317166, 51.2, 9.4));
         assertTrue(ph.isFound());
         assertEquals(3, ph.getPoints().getSize());
 
-        instance.close();
-        instance = new GraphHopper().setInMemory(true);
-        assertTrue(instance.load(ghLoc));
-        ph = instance.route(new GHRequest(51.2492152, 9.4317166, 51.2, 9.4));
+        closableInstance.close();
+        closableInstance = new GraphHopper().setInMemory(true);
+        assertTrue(closableInstance.load(ghLoc));
+        ph = closableInstance.route(new GHRequest(51.2492152, 9.4317166, 51.2, 9.4));
         assertTrue(ph.isFound());
         assertEquals(3, ph.getPoints().getSize());
+
+        closableInstance.close();
+        try
+        {
+            ph = closableInstance.route(new GHRequest(51.2492152, 9.4317166, 51.2, 9.4));
+            assertTrue(false);
+        } catch (Exception ex)
+        {
+            assertEquals("You need to create a new GraphHopper instance as it is already closed", ex.getMessage());
+        }
+
+        try
+        {
+            QueryResult qr = closableInstance.getLocationIndex().findClosest(51.2492152, 9.4317166, EdgeFilter.ALL_EDGES);
+            assertTrue(false);
+        } catch (Exception ex)
+        {
+            assertEquals("You need to create a new LocationIndex instance as it is already closed", ex.getMessage());
+        }
     }
 
     @Test
@@ -341,18 +362,17 @@ public class GraphHopperTest
         instance.importOrLoad();
 
         // A -> B -> C
-        GHPlace first = new GHPlace(11.1, 50);
-        GHPlace second = new GHPlace(12, 51);
-        GHPlace third = new GHPlace(11.2, 51.9);
-        GHResponse rsp12 = instance.route(new GHRequest().addPlace(first).addPlace(second));
+        GHPoint first = new GHPoint(11.1, 50);
+        GHPoint second = new GHPoint(12, 51);
+        GHPoint third = new GHPoint(11.2, 51.9);
+        GHResponse rsp12 = instance.route(new GHRequest().addPoint(first).addPoint(second));
         assertTrue("should find 1->2", rsp12.isFound());
         assertEquals(147931.5, rsp12.getDistance(), .1);
-        GHResponse rsp23 = instance.route(new GHRequest().addPlace(second).addPlace(third));
+        GHResponse rsp23 = instance.route(new GHRequest().addPoint(second).addPoint(third));
         assertTrue("should find 2->3", rsp23.isFound());
         assertEquals(176608.9, rsp23.getDistance(), .1);
 
-        GHResponse rsp = instance.route(new GHRequest().
-                addPlace(first).addPlace(second).addPlace(third));
+        GHResponse rsp = instance.route(new GHRequest().addPoint(first).addPoint(second).addPoint(third));
 
         assertFalse(rsp.hasErrors());
         assertTrue("should find 1->2->3", rsp.isFound());

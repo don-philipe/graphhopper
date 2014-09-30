@@ -17,7 +17,6 @@
  */
 package com.graphhopper.http;
 
-import com.graphhopper.search.Geocoding;
 import com.google.inject.AbstractModule;
 import com.google.inject.name.Names;
 import com.graphhopper.GraphHopper;
@@ -53,12 +52,9 @@ public class DefaultModule extends AbstractModule
 
             bind(GraphHopper.class).toInstance(hopper);
 
-            String algo = args.get("routing.defaultAlgorithm", "dijkstrabi");
-            bind(String.class).annotatedWith(Names.named("defaultAlgorithm")).toInstance(algo);
-
             long timeout = args.getLong("web.timeout", 3000);
-            bind(Long.class).annotatedWith(Names.named("timeout")).toInstance(timeout);
-            bind(TranslationMap.class).toInstance(new TranslationMap().doImport());
+            bind(Long.class).annotatedWith(Names.named("timeout")).toInstance(timeout);            
+            bind(TranslationMap.class).toInstance(hopper.getTranslationMap());
         } catch (Exception ex)
         {
             throw new IllegalStateException("Couldn't load graph", ex);

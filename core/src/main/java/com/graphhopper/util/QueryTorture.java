@@ -17,7 +17,7 @@
  */
 package com.graphhopper.util;
 
-import com.graphhopper.util.shapes.GHPlace;
+import com.graphhopper.util.shapes.GHPoint;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -68,10 +68,10 @@ public class QueryTorture
         if (Helper.isEmpty(baseUrl))
             throw new IllegalArgumentException("baseUrl cannot be empty!?");
 
-        if (baseUrl.endsWith("/"))
-            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
-        if (!baseUrl.endsWith("/route"))
-            baseUrl += "/route";
+        if (!baseUrl.endsWith("/"))
+            baseUrl += "/";
+        if (!baseUrl.endsWith("route/"))
+            baseUrl += "route/";
         if (!baseUrl.endsWith("?"))
             baseUrl += "?";
 
@@ -167,7 +167,8 @@ public class QueryTorture
         Query query = queryQueue.take();
         try
         {
-            String res = new Downloader("QueryTorture!").setTimeout(timeout).downloadAsString(baseUrl + query.queryString);
+            String url = baseUrl + query.queryString;
+            String res = new Downloader("QueryTorture!").setTimeout(timeout).downloadAsString(url);
             if (res.contains("errors"))
                 routingErrorCounter.incrementAndGet();
             else
@@ -189,7 +190,7 @@ public class QueryTorture
             {
                 try
                 {
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(logFile), "UTF-8"));
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(logFile), Helper.UTF_CS));
                     try
                     {
                         int logLineNo = 0;
@@ -236,8 +237,8 @@ public class QueryTorture
     static class Query
     {
         String queryString;
-        GHPlace start;
-        GHPlace end;
+        GHPoint start;
+        GHPoint end;
 
         static Query parse( String logLine )
         {
@@ -259,15 +260,16 @@ public class QueryTorture
                 if (!param.startsWith("point="))
                     continue;
 
-                GHPlace place = GHPlace.parse(param.substring(6));
-                if (place == null)
+                param = param.replace("%2C", ",");
+                GHPoint point = GHPoint.parse(param.substring(6));
+                if (point == null)
                     continue;
 
                 if (q.start == null)
-                    q.start = place;
+                    q.start = point;
                 else if (q.end == null)
                 {
-                    q.end = place;
+                    q.end = point;
                     break;
                 }
             }

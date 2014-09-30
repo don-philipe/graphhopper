@@ -26,7 +26,6 @@ import com.graphhopper.util.DistanceCalcEarth;
 import com.graphhopper.util.DistancePlaneProjection;
 import com.graphhopper.util.EdgeExplorer;
 import com.graphhopper.util.EdgeIterator;
-import com.graphhopper.util.shapes.CoordTrig;
 import com.graphhopper.util.shapes.GHPoint;
 import gnu.trove.map.TIntObjectMap;
 import gnu.trove.map.hash.TIntObjectHashMap;
@@ -70,8 +69,8 @@ public class AStarBidirection extends AbstractBidirAlgo
     protected AStarEdge currFrom;
     protected AStarEdge currTo;
     protected double approximationFactor;
-    private CoordTrig fromCoord;
-    private CoordTrig toCoord;
+    private GHPoint fromCoord;
+    private GHPoint toCoord;
     protected PathBidirRef bestPath;
 
     public AStarBidirection( Graph graph, FlagEncoder encoder, Weighting weighting )
@@ -154,9 +153,10 @@ public class AStarBidirection extends AbstractBidirAlgo
     }
 
     @Override
-    protected void initPath()
+    protected Path createAndInitPath()
     {
         bestPath = new PathBidirRef(graph, flagEncoder);
+        return bestPath;
     }
 
     @Override
@@ -194,7 +194,7 @@ public class AStarBidirection extends AbstractBidirAlgo
         currFrom = prioQueueOpenSetFrom.poll();
         bestWeightMapOther = bestWeightMapTo;
         fillEdges(currFrom, toCoord, prioQueueOpenSetFrom, bestWeightMapFrom, outEdgeExplorer, false);
-        visitedFromCount++;
+        visitedCountFrom++;
         return true;
     }
 
@@ -207,11 +207,11 @@ public class AStarBidirection extends AbstractBidirAlgo
         currTo = prioQueueOpenSetTo.poll();
         bestWeightMapOther = bestWeightMapFrom;
         fillEdges(currTo, fromCoord, prioQueueOpenSetTo, bestWeightMapTo, inEdgeExplorer, true);
-        visitedToCount++;
+        visitedCountTo++;
         return true;
     }
 
-    private void fillEdges( AStarEdge currEdge, CoordTrig goal,
+    private void fillEdges( AStarEdge currEdge, GHPoint goal,
             PriorityQueue<AStarEdge> prioQueueOpenSet,
             TIntObjectMap<AStarEdge> shortestWeightMap, EdgeExplorer explorer, boolean reverse )
     {

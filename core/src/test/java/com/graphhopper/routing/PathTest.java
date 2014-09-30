@@ -43,7 +43,7 @@ public class PathTest
     private final EncodingManager carManager = new EncodingManager("CAR");
     private final FlagEncoder encoder = new EncodingManager("CAR").getEncoder("CAR");
     private final TranslationMap trMap = TranslationMapTest.SINGLETON;
-    private final TranslationMap.Translation tr = trMap.getWithFallBack(Locale.US);
+    private final Translation tr = trMap.getWithFallBack(Locale.US);
 
     @Test
     public void testFound()
@@ -91,12 +91,12 @@ public class PathTest
         path.extract();
         // 0-1-2
         assertPList(Helper.createPointList(0, 0.1, 8, 1, 9, 1, 1, 0.1, 10, 1, 11, 1, 2, 0.1), path.calcPoints());
-        InstructionList instr = path.calcInstructions();
-        List<Map<String, Object>> res = instr.createJson(tr);
+        InstructionList instr = path.calcInstructions(tr);
+        List<Map<String, Object>> res = instr.createJson();
         Map<String, Object> tmp = res.get(0);
         assertEquals(3000.0, tmp.get("distance"));
         assertEquals(504000L, tmp.get("time"));
-        assertEquals("Continue onto road", tmp.get("text"));
+        assertEquals("Continue", tmp.get("text"));
         assertEquals("[0, 6]", tmp.get("interval").toString());
 
         tmp = res.get(1);
@@ -115,13 +115,13 @@ public class PathTest
         e1.parent.parent = new EdgeEntry(-1, 0, 1);
         path.setEdgeEntry(e1);
         path.extract();
-        instr = path.calcInstructions();
-        res = instr.createJson(tr);
+        instr = path.calcInstructions(tr);
+        res = instr.createJson();
 
         tmp = res.get(0);
         assertEquals(1000.0, tmp.get("distance"));
         assertEquals(360000L, tmp.get("time"));
-        assertEquals("Continue onto road", tmp.get("text"));
+        assertEquals("Continue", tmp.get("text"));
         assertEquals("[0, 3]", tmp.get("interval").toString());
 
         tmp = res.get(1);
@@ -141,9 +141,9 @@ public class PathTest
         path.extract();
         // 2-1-0
         assertPList(Helper.createPointList(2, 0.1, 11, 1, 10, 1, 1, 0.1, 9, 1, 8, 1, 0, 0.1), path.calcPoints());
-        instr = path.calcInstructions();
-
-        res = instr.createJson(tr);
+        
+        instr = path.calcInstructions(tr);
+        res = instr.createJson();
         tmp = res.get(0);
         assertEquals(2000.0, tmp.get("distance"));
         assertEquals(144000L, tmp.get("time"));
@@ -153,7 +153,7 @@ public class PathTest
         tmp = res.get(1);
         assertEquals(1000.0, tmp.get("distance"));
         assertEquals(360000L, tmp.get("time"));
-        assertEquals("Turn sharp left onto road", tmp.get("text"));
+        assertEquals("Turn sharp left", tmp.get("text"));
         assertEquals("[3, 6]", tmp.get("interval").toString());
         lastIndex = (Integer) ((List) res.get(res.size() - 1).get("interval")).get(0);
         assertEquals(path.calcPoints().size() - 1, lastIndex);
@@ -192,7 +192,7 @@ public class PathTest
         path.setEdgeEntry(e1);
         path.extract();
 
-        path.calcInstructions();
+        path.calcInstructions(tr);
         Instruction nextInstr1 = path.findInstruction(0.0, 0.1);
         Instruction nextInstr2 = path.findInstruction(5.0, 0.4);
         Instruction nextInstr3 = path.findInstruction(9.0, 0.53);

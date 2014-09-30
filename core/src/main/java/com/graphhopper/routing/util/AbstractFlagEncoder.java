@@ -70,7 +70,7 @@ public abstract class AbstractFlagEncoder implements FlagEncoder, TurnCostEncode
 
     /* restriction definitions */
     protected String[] restrictions;
-    protected HashSet<String> intended = new HashSet<String>();
+    protected HashSet<String> intendedValues = new HashSet<String>();
     protected HashSet<String> restrictedValues = new HashSet<String>(5);
     protected HashSet<String> ferries = new HashSet<String>(5);
     protected HashSet<String> oneways = new HashSet<String>(5);
@@ -93,6 +93,8 @@ public abstract class AbstractFlagEncoder implements FlagEncoder, TurnCostEncode
         ferries.add("ferry");
 
         acceptedRailways.add("tram");
+        acceptedRailways.add("abandoned");
+        acceptedRailways.add("disused");
     }
 
     /**
@@ -195,12 +197,12 @@ public abstract class AbstractFlagEncoder implements FlagEncoder, TurnCostEncode
     {
         // movable barriers block if they are not marked as passable
         if (node.hasTag("barrier", potentialBarriers)
-                && !node.hasTag(restrictions, intended)
+                && !node.hasTag(restrictions, intendedValues)
                 && !node.hasTag("locked", "no"))
             return directionBitMask;
 
         if ((node.hasTag("highway", "ford")
-                || node.hasTag("ford")) && !node.hasTag(restrictions, intended))
+                || node.hasTag("ford")) && !node.hasTag(restrictions, intendedValues))
             return directionBitMask;
 
         return 0;
@@ -227,15 +229,9 @@ public abstract class AbstractFlagEncoder implements FlagEncoder, TurnCostEncode
     }
 
     @Override
-    public int getPavementType( long flags )
+    public InstructionAnnotation getAnnotation( long flags, Translation tr )
     {
-        return 0;
-    }
-
-    @Override
-    public int getWayType( long flags )
-    {
-        return 0;
+        return InstructionAnnotation.EMPTY;
     }
 
     /**
@@ -312,6 +308,23 @@ public abstract class AbstractFlagEncoder implements FlagEncoder, TurnCostEncode
         return speedEncoder.getMaxValue();
     }
 
+    /**
+     * @return -1 if no maxspeed found
+     */
+    protected double getMaxSpeed( OSMWay way )
+    {
+        double maxSpeed = parseSpeed(way.getTag("maxspeed"));
+        double fwdSpeed = parseSpeed(way.getTag("maxspeed:forward"));
+        if (fwdSpeed >= 0 && (maxSpeed < 0 || fwdSpeed < maxSpeed))
+            maxSpeed = fwdSpeed;
+
+        double backSpeed = parseSpeed(way.getTag("maxspeed:backward"));
+        if (backSpeed >= 0 && (maxSpeed < 0 || backSpeed < maxSpeed))
+            maxSpeed = backSpeed;
+
+        return maxSpeed;
+    }
+
     @Override
     public int hashCode()
     {
@@ -343,7 +356,7 @@ public abstract class AbstractFlagEncoder implements FlagEncoder, TurnCostEncode
     protected static double parseSpeed( String str )
     {
         if (Helper.isEmpty(str))
-            return -1;        
+            return -1;
 
         try
         {

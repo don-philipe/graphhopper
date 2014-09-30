@@ -18,37 +18,47 @@
 package com.graphhopper.util;
 
 /**
- * Calculates the angle of a turn, defined by three points.
+ * Calculates the angle of a turn, defined by three points. The fast atan2 method is from Jim Shima,
+ * 1999, http://www.dspguru.com/dsp/tricks/fixed-point-atan2-with-self-normalization
  * <p>
  * @author Johannes Pelzer
  * @author Peter Karich
  */
-public class AngleCalc2D
+public class AngleCalc
 {
+    private final static double PI_4 = Math.PI / 4.0;
+    private final static double PI3_4 = 3.0 * Math.PI / 4.0;
+
+    static final double atan2( double y, double x )
+    {
+        // kludge to prevent 0/0 condition
+        double absY = Math.abs(y) + 1e-10;
+        double r, angle;
+        if (x < 0.0)
+        {
+            r = (x + absY) / (absY - x);
+            angle = PI3_4;
+        } else
+        {
+            r = (x - absY) / (x + absY);
+            angle = PI_4;
+        }
+
+        angle += (0.1963 * r * r - 0.9817) * r;
+        if (y < 0.0)
+            // negate if in quad III or IV
+            return -angle;
+        return angle;
+    }
 
     /**
      * Return orientation of line relative to east.
      * <p>
      * @return Orientation in interval -pi to +pi where 0 is east
-     * <p>
-     * @Deprecated because it seems to be nicer to align to north so try to use calcOrientationNorth
-     * instaead
      */
-    @Deprecated
     public double calcOrientation( double lat1, double lon1, double lat2, double lon2 )
     {
-        return Math.atan2(lat2 - lat1, lon2 - lon1);
-        //return Math.atan2(lon2 - lon1, lat2 - lat1);
-    }
-
-    /**
-     * Return orientation of line relative to north. (North by coordinates, not magnetic north)
-     * <p>
-     * @return Orientation in interval -pi to +pi where 0 is north and pi is south
-     */
-    public double calcOrientationNorth( double lat1, double lon1, double lat2, double lon2 )
-    {
-        return Math.atan2(lon2 - lon1, lat2 - lat1);
+        return atan2((lat2 - lat1), (lon2 - lon1));
     }
 
     /**
@@ -77,22 +87,17 @@ public class AngleCalc2D
     }
 
     /**
-     * Calculate Azimuth for a line given by two coordinates. Direction in Degree where 0 is North,
-     * 90 is East, and 270 is West
-     * <p>
-     * @param lat1
-     * @param lon1
-     * @param lat2
-     * @param lon2
-     * @return
+     * Calculate Azimuth for a line given by two coordinates. Direction in 'degree' where 0 is
+     * north, 90 is east, 180 is south and 270 is west.
      */
     double calcAzimuth( double lat1, double lon1, double lat2, double lon2 )
     {
-        double orientation = calcOrientationNorth(lat1, lon1, lat2, lon2);
-        double baseOrientation = calcOrientationNorth(2, 0, 1, 0);    // south
-        double alignedOrientation = alignOrientation(baseOrientation, orientation);
+        double orientation = -calcOrientation(lat1, lon1, lat2, lon2);
+        orientation = Helper.round4(orientation + Math.PI / 2);        
+        if (orientation < 0)
+            orientation += 2 * Math.PI;
 
-        return Math.toDegrees(alignedOrientation);
+        return Math.toDegrees(orientation);
     }
 
     String azimuth2compassPoint( double azimuth )

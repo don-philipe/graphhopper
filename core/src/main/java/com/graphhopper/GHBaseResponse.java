@@ -15,41 +15,61 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package com.graphhopper.util.shapes;
+package com.graphhopper;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- *
+ * GraphHopper its base response class.
+ * <p/>
  * @author Peter Karich
  */
-public class CoordTrigIntEntry extends CoordTrig<Integer>
+public class GHBaseResponse<T>
 {
-    private int v;
+    private String debugInfo = "";
+    private final List<Throwable> errors = new ArrayList<Throwable>(4);
 
-    public CoordTrigIntEntry()
+    public GHBaseResponse()
     {
     }
 
-    public CoordTrigIntEntry( int o, double lat, double lon )
+    public String getDebugInfo()
     {
-        super(lat, lon);
-        this.v = o;
+        return debugInfo;
     }
 
-    @Override
-    public void setValue( Integer t )
+    @SuppressWarnings("unchecked")
+    public T setDebugInfo( String debugInfo )
     {
-        v = t;
+        if (debugInfo != null)
+            this.debugInfo = debugInfo;
+        return (T) this;
     }
 
-    @Override
-    public Integer getValue()
+    /**
+     * @return true if one or more error found
+     */
+    public boolean hasErrors()
     {
-        return v;
+        return !errors.isEmpty();
+    }
+
+    public List<Throwable> getErrors()
+    {
+        return errors;
+    }
+
+    @SuppressWarnings("unchecked")
+    public T addError( Throwable error )
+    {
+        errors.add(error);
+        return (T) this;
     }
 
     @Override
     public String toString()
     {
-        return super.toString() + " value:" + v;
+        return errors.toString();
     }
 }
