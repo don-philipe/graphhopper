@@ -63,10 +63,10 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         restrictedValues.add("no");
         restrictedValues.add("restricted");
 
-        intended.add("yes");
-        intended.add("designated");
-        intended.add("official");
-        intended.add("permissive");
+        intendedValues.add("yes");
+        intendedValues.add("designated");
+        intendedValues.add("official");
+        intendedValues.add("permissive");
 
         sidewalks.add("yes");
         sidewalks.add("both");
@@ -106,7 +106,7 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
     {
         // first two bits are reserved for route handling in superclass
         shift = super.defineWayBits(index, shift);
-        // larger value required - ferries are faster than pedestrians
+        // larger value required - ferries are faster than wheelchairs
         speedEncoder = new EncodedDoubleValue("Speed", shift, speedBits, speedFactor, MEAN, FERRY);
         shift += speedBits;
 
@@ -163,14 +163,14 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         // TODO: steps may have ramps
         if(way.hasTag("highway", "steps"))
         {
-            if(way.hasTag("ramp:wheelchair", intended))
+            if(way.hasTag("ramp:wheelchair", intendedValues))
                 return acceptBit;
             else
                 return 0;
         }
         
         // allow wheelchairs on cycleways which can also be used by pedestrians
-        if(way.hasTag("highway", "cycleway") && way.hasTag("foot", intended))
+        if(way.hasTag("highway", "cycleway") && way.hasTag("foot", intendedValues))
             return acceptBit;
         
         String highwayValue = way.getTag("highway");
@@ -197,14 +197,14 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
             return acceptBit;
 
         // no need to evaluate ferries or fords - already included here
-        if (way.hasTag("wheelchair", intended))
+        if (way.hasTag("wheelchair", intendedValues))
             return acceptBit;
 
         if (!allowedHighwayTags.contains(highwayValue))
             return 0;
 
-        if (way.hasTag("motorroad", "yes"))
-            return 0;
+//        if (way.hasTag("motorroad", "yes"))
+//            return 0;
 
         // do not get our feet wet, "yes" is already included above
         if (way.hasTag("highway", "ford") || way.hasTag("ford"))
@@ -269,30 +269,18 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
     }
     
     @Override
-    public int getPavementType( long flags )
-    {
-        return 0;
-    }
-
-    @Override
-    public int getWayType( long flags )
-    {
-        return 0;
-    }
-    
-    @Override
     public long handleNodeTags( OSMNode node )
     {
         // movable barriers block if they are not marked as passable
         if (node.hasTag("barrier", potentialBarriers)
-                && !node.hasTag(restrictions, intended)
+                && !node.hasTag(restrictions, intendedValues)
                 && !node.hasTag("locked", "no"))
         {
             return directionBitMask;
         }
 
         if ((node.hasTag("highway", "ford") || node.hasTag("ford"))
-                && !node.hasTag(restrictions, intended))
+                && !node.hasTag(restrictions, intendedValues))
         {
             return directionBitMask;
         }
