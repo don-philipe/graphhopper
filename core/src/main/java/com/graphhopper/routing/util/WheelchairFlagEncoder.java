@@ -49,7 +49,7 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
      */
     protected WheelchairFlagEncoder()
     {
-        super(4, 1);
+        this(4, 1);
     }
     
     protected WheelchairFlagEncoder( int speedBits, double speedFactor )
@@ -178,8 +178,9 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         {
             if (way.hasTag("route", ferries))
             {
-                String footTag = way.getTag("wheelchair");
-                if (footTag == null || "yes".equals(footTag))
+                String wheelchairTag = way.getTag("wheelchair");
+                String footTag = way.getTag("foot");
+                if(!"no".equals(footTag) && wheelchairTag == null || "yes".equals(wheelchairTag))
                     return acceptBit | ferryBit;
             }
             return 0;
@@ -203,8 +204,8 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         if (!allowedHighwayTags.contains(highwayValue))
             return 0;
 
-//        if (way.hasTag("motorroad", "yes"))
-//            return 0;
+        if (way.hasTag("motorroad", "yes"))
+            return 0;
 
         // do not get our feet wet, "yes" is already included above
         if (way.hasTag("highway", "ford") || way.hasTag("ford"))
@@ -268,23 +269,23 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         return encoded;
     }
     
-    @Override
-    public long handleNodeTags( OSMNode node )
-    {
-        // movable barriers block if they are not marked as passable
-        if (node.hasTag("barrier", potentialBarriers)
-                && !node.hasTag(restrictions, intendedValues)
-                && !node.hasTag("locked", "no"))
-        {
-            return directionBitMask;
-        }
-
-        if ((node.hasTag("highway", "ford") || node.hasTag("ford"))
-                && !node.hasTag(restrictions, intendedValues))
-        {
-            return directionBitMask;
-        }
-
-        return 0;
-    }
+//    @Override
+//    public long handleNodeTags( OSMNode node )
+//    {
+//        // movable barriers block if they are not marked as passable
+//        if (node.hasTag("barrier", potentialBarriers)
+//                && !node.hasTag(restrictions, intendedValues)
+//                && !node.hasTag("locked", "no"))
+//        {
+//            return directionBitMask;
+//        }
+//
+//        if ((node.hasTag("highway", "ford") || node.hasTag("ford"))
+//                && !node.hasTag(restrictions, intendedValues))
+//        {
+//            return directionBitMask;
+//        }
+//
+//        return 0;
+//    }
 }
