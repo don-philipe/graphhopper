@@ -116,6 +116,8 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
     
     /**
      * Wheelchair flag encoder does not provide any turn cost / restrictions.
+     * @param index
+     * @return 
      */
     @Override
     public int defineTurnBits( int index, int shift, int numberCostsBits )
@@ -126,6 +128,7 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
     /**
      * Wheelchair flag encoder does not provide any turn cost / restrictions
      * 
+     * @param flag
      * @return <code>false</code>
      */
     @Override
@@ -137,6 +140,7 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
     /**
      * Wheelchair flag encoder does not provide any turn cost / restrictions
      * 
+     * @param flag
      * @return 0
      */    
     @Override
@@ -199,6 +203,11 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
 
         // no need to evaluate ferries or fords - already included here
         if (way.hasTag("wheelchair", intendedValues))
+            return acceptBit;
+        
+        // sometimes footways are tagged as paths
+        // but hikingtrails are also often tagged as paths, so some more tagevaluation is required here
+        if(way.hasTag("highway", "path") && way.hasTag("bicycle", intendedValues))
             return acceptBit;
 
         if (!allowedHighwayTags.contains(highwayValue))
