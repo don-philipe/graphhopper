@@ -21,7 +21,6 @@ package com.graphhopper.routing.util;
 import java.util.HashSet;
 import java.util.Set;
 
-import com.graphhopper.reader.OSMNode;
 import com.graphhopper.reader.OSMRelation;
 import com.graphhopper.reader.OSMWay;
 
@@ -186,14 +185,6 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
             return 0;
         }
 
-//        String sacScale = way.getTag("sac_scale");
-//        if (sacScale != null)
-//        {
-//            if (!"hiking".equals(sacScale) && !"mountain_hiking".equals(sacScale))
-//                // other scales are too dangerous, see http://wiki.openstreetmap.org/wiki/Key:sac_scale
-//                return 0;
-//        }
-
         if (way.hasTag("sidewalk", sidewalks))
             return acceptBit;
 
@@ -225,7 +216,7 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         return acceptBit;
     }
 
-        @Override
+    @Override
     public long handleRelationTags( OSMRelation relation, long oldRelationFlags )
     {
         return oldRelationFlags;
@@ -238,19 +229,9 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
             return 0;
 
         long encoded;
-        if ((allowed & ferryBit) == 0)
+        if((allowed & ferryBit) == 0)
         {
-            String sacScale = way.getTag("sac_scale");
-            if (sacScale != null)
-            {
-                if ("hiking".equals(sacScale))
-                    encoded = speedEncoder.setDoubleValue(0, MEAN);
-                else
-                    encoded = speedEncoder.setDoubleValue(0, SLOW);
-            } else
-            {
-                encoded = speedEncoder.setDoubleValue(0, MEAN);
-            }
+            encoded = speedEncoder.setDoubleValue(0, MEAN);
             encoded |= directionBitMask;
 
             // mark safe ways or ways with cycle lanes
@@ -260,7 +241,8 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
                 encoded |= safeWayBit;
             }
 
-        } else
+        }
+        else
         {
             encoded = handleFerryTags(way, SLOW, MEAN, FERRY);
             encoded |= directionBitMask;
