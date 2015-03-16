@@ -20,22 +20,68 @@ package com.graphhopper;
 import com.graphhopper.util.InstructionList;
 import com.graphhopper.util.PointList;
 import com.graphhopper.util.shapes.BBox;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Wrapper to simplify output of GraphHopper.
  * <p/>
  * @author Peter Karich
  */
-public class GHResponse extends GHBaseResponse<GHResponse>
+public class GHResponse
 {
+    private String debugInfo = "";
+    private final List<Throwable> errors = new ArrayList<Throwable>(4);
     private PointList list = PointList.EMPTY;
     private double distance;
+    private double routeWeight;
     private long time;
-    private InstructionList instructions = InstructionList.EMPTY;
-    private boolean found;
+    private InstructionList instructions = null;
 
     public GHResponse()
     {
+    }
+
+    public String getDebugInfo()
+    {
+        check("getDebugInfo");
+        return debugInfo;
+    }
+
+    public GHResponse setDebugInfo( String debugInfo )
+    {
+        if (debugInfo != null)
+            this.debugInfo = debugInfo;
+        return this;
+    }
+
+    private void check( String method )
+    {
+        if (hasErrors())
+        {
+            throw new RuntimeException("You cannot call " + method + " if response contains errors. Check this with ghResponse.hasErrors(). "
+                    + "Errors are: " + getErrors());
+        }
+    }
+
+    /**
+     * @return true if one or more error found
+     */
+    public boolean hasErrors()
+    {
+        return !errors.isEmpty();
+    }
+
+    public List<Throwable> getErrors()
+    {
+        return errors;
+    }
+
+    @SuppressWarnings("unchecked")
+    public GHResponse addError( Throwable error )
+    {
+        errors.add(error);
+        return this;
     }
 
     public GHResponse setPoints( PointList points )
@@ -51,6 +97,7 @@ public class GHResponse extends GHBaseResponse<GHResponse>
      */
     public PointList getPoints()
     {
+        check("getPoints");
         return list;
     }
 
@@ -68,6 +115,7 @@ public class GHResponse extends GHBaseResponse<GHResponse>
      */
     public double getDistance()
     {
+        check("getDistance");
         return distance;
     }
 
@@ -82,18 +130,25 @@ public class GHResponse extends GHBaseResponse<GHResponse>
      */
     public long getMillis()
     {
+        check("getMillis");
         return time;
     }
 
-    public GHResponse setFound( boolean found )
+    public GHResponse setRouteWeight( double weight )
     {
-        this.found = found;
+        this.routeWeight = weight;
         return this;
     }
 
-    public boolean isFound()
+    /**
+     * This method returns a double value which is better than the time for comparison of routes but
+     * only if you know what you are doing, e.g. only to compare routes gained with the same query
+     * parameters like vehicle.
+     */
+    public double getRouteWeight()
     {
-        return found;
+        check("getRouteWeight");
+        return routeWeight;
     }
 
     /**
@@ -101,7 +156,8 @@ public class GHResponse extends GHBaseResponse<GHResponse>
      */
     public BBox calcRouteBBox( BBox _fallback )
     {
-        BBox bounds = BBox.INVERSE.clone();
+        check("calcRouteBBox");
+        BBox bounds = BBox.createInverse(_fallback.hasElevation());
         int len = list.getSize();
         if (len == 0)
             return _fallback;
@@ -110,17 +166,14 @@ public class GHResponse extends GHBaseResponse<GHResponse>
         {
             double lat = list.getLatitude(i);
             double lon = list.getLongitude(i);
-            if (lat > bounds.maxLat)
-                bounds.maxLat = lat;
-
-            if (lat < bounds.minLat)
-                bounds.minLat = lat;
-
-            if (lon > bounds.maxLon)
-                bounds.maxLon = lon;
-
-            if (lon < bounds.minLon)
-                bounds.minLon = lon;
+            if (bounds.hasElevation())
+            {
+                double ele = list.getEle(i);
+                bounds.update(lat, lon, ele);
+            } else
+            {
+                bounds.update(lat, lon);
+            }
         }
         return bounds;
     }
@@ -128,12 +181,12 @@ public class GHResponse extends GHBaseResponse<GHResponse>
     @Override
     public String toString()
     {
-        String str = "found:" + isFound() + ", nodes:" + list.getSize() + ": " + list.toString();
+        String str = "nodes:" + list.getSize() + ": " + list.toString();
         if (!instructions.isEmpty())
             str += ", " + instructions.toString();
 
         if (hasErrors())
-            str += ", " + super.toString();
+            str += ", " + errors.toString();
 
         return str;
     }
@@ -145,6 +198,10 @@ public class GHResponse extends GHBaseResponse<GHResponse>
 
     public InstructionList getInstructions()
     {
+        check("getInstructions");
+        if (instructions == null)
+            throw new IllegalArgumentException("To access instructions you need to enable creation before routing");
+
         return instructions;
     }
 }

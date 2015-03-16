@@ -48,7 +48,7 @@ public class WheelchairFlagEncoderTest
     public void testBasics()
     {
         long fl = wheelchairEncoder.flagsDefault(true, true);
-        assertEquals(WheelchairFlagEncoder.MEAN, wheelchairEncoder.getSpeed(fl), 1e-1);
+        assertEquals(WheelchairFlagEncoder.MEAN_SPEED, wheelchairEncoder.getSpeed(fl), 1e-1);
 
         long fl1 = wheelchairEncoder.flagsDefault(true, false);
         long fl2 = wheelchairEncoder.reverseFlags(fl1);
@@ -175,11 +175,11 @@ public class WheelchairFlagEncoderTest
         long flags_r20 = wheelchairEncoder.getTurnFlags(true, 20);
         long flags_20 = wheelchairEncoder.getTurnFlags(false, 20);
 
-        assertEquals(0, wheelchairEncoder.getTurnCosts(flags_r0));
-        assertEquals(0, wheelchairEncoder.getTurnCosts(flags_0));
+        assertEquals(0, wheelchairEncoder.getTurnCost(flags_r0));
+        assertEquals(0, wheelchairEncoder.getTurnCost(flags_0));
 
-        assertEquals(0, wheelchairEncoder.getTurnCosts(flags_r20));
-        assertEquals(0, wheelchairEncoder.getTurnCosts(flags_20));
+        assertEquals(0, wheelchairEncoder.getTurnCost(flags_r20));
+        assertEquals(0, wheelchairEncoder.getTurnCost(flags_20));
 
         assertFalse(wheelchairEncoder.isTurnRestricted(flags_r0));
         assertFalse(wheelchairEncoder.isTurnRestricted(flags_0));

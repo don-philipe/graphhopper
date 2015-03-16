@@ -20,17 +20,11 @@ package com.graphhopper.ui;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.coll.GHBitSet;
 import com.graphhopper.coll.GHTBitSet;
-import com.graphhopper.routing.Path;
-import com.graphhopper.routing.RoutingAlgorithm;
-import com.graphhopper.routing.util.AlgorithmPreparation;
-import com.graphhopper.routing.util.BikeCommonFlagEncoder;
-import com.graphhopper.routing.util.EdgeFilter;
-import com.graphhopper.routing.util.NoOpAlgorithmPreparation;
-import com.graphhopper.routing.util.PriorityWeighting;
-import com.graphhopper.routing.util.Weighting;
+import com.graphhopper.routing.*;
+import com.graphhopper.routing.util.*;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.NodeAccess;
-import com.graphhopper.storage.index.LocationIndex;
+import com.graphhopper.storage.index.LocationIndexTree;
 import com.graphhopper.storage.index.QueryResult;
 import com.graphhopper.util.*;
 import com.graphhopper.util.shapes.BBox;
@@ -53,7 +47,6 @@ import org.slf4j.LoggerFactory;
  */
 public class MiniGraphUI
 {
-
     public static void main( String[] strs ) throws Exception
     {
         CmdArgs args = CmdArgs.read(strs);
@@ -63,10 +56,10 @@ public class MiniGraphUI
     }
     private Logger logger = LoggerFactory.getLogger(getClass());
     private Path path;
-    private AlgorithmPreparation prepare;
+    private RoutingAlgorithmFactory algoFactory;
     private final Graph graph;
     private final NodeAccess na;
-    private LocationIndex index;
+    private LocationIndexTree index;
     private String latLon = "";
     private GraphicsWrapper mg;
     private JPanel infoPanel;
@@ -75,24 +68,24 @@ public class MiniGraphUI
     private final MapLayer pathLayer;
     private boolean fastPaint = false;
     private final Weighting weighting;
-    private final BikeCommonFlagEncoder encoder;
+    private final FlagEncoder encoder;
+    private AlgorithmOptions algoOpts;
 
     public MiniGraphUI( GraphHopper hopper, boolean debug )
     {
         this.graph = hopper.getGraph();
         this.na = graph.getNodeAccess();
-        prepare = hopper.getPreparation();
-        encoder = (BikeCommonFlagEncoder) hopper.getEncodingManager().getEncoder("bike");
-        weighting = new PriorityWeighting(encoder);
-        if (prepare == null)
-            prepare = NoOpAlgorithmPreparation.createAlgoPrepare(graph, "dijkstrabi", encoder, weighting);
+        algoFactory = hopper.getAlgorithmFactory();
+        encoder = hopper.getEncodingManager().getEncoder("car");
+        weighting = hopper.createWeighting(new WeightingMap("fastest"), encoder);
+        algoOpts = new AlgorithmOptions(AlgorithmOptions.DIJKSTRA_BI, encoder, weighting);
 
-        logger.info("locations:" + graph.getNodes() + ", debug:" + debug + ", algo:" + prepare.createAlgo().getName());
+        logger.info("locations:" + graph.getNodes() + ", debug:" + debug + ", algoOpts:" + algoOpts);
         mg = new GraphicsWrapper(graph);
 
         // prepare node quadtree to 'enter' the graph. create a 313*313 grid => <3km
 //         this.index = new DebugLocation2IDQuadtree(roadGraph, mg);
-        this.index = hopper.getLocationIndex();
+        this.index = (LocationIndexTree) hopper.getLocationIndex();
 //        this.algo = new DebugDijkstraBidirection(graph, mg);
         // this.algo = new DijkstraBidirection(graph);
 //        this.algo = new DebugAStar(graph, mg);
@@ -180,23 +173,8 @@ public class MiniGraphUI
                         double lon2 = na.getLongitude(nodeId);
 
                         // mg.plotText(g2, lat * 0.9 + lat2 * 0.1, lon * 0.9 + lon2 * 0.1, iter.getName());
-                        mg.plotText(g2, lat * 0.9 + lat2 * 0.1, lon * 0.9 + lon2 * 0.1, "s:" + (int) encoder.getSpeed(iter.getFlags()));
-                        g2.setColor(Color.BLACK);
-
-                        double prio = encoder.getPriority(iter.getFlags());
-                        if (prio < 0.2)
-                            g2.setColor(Color.RED.darker());
-                        else if (prio < 0.3)
-                            g2.setColor(Color.RED.brighter());
-                        else if (prio < 0.5)
-                            g2.setColor(Color.ORANGE);
-                        else if (prio < 0.6)
-                            g2.setColor(Color.GRAY);
-                        else if (prio < 0.8)
-                            g2.setColor(Color.GREEN.brighter());
-                        else
-                            g2.setColor(Color.GREEN.darker());
-
+                        //mg.plotText(g2, lat * 0.9 + lat2 * 0.1, lon * 0.9 + lon2 * 0.1, "s:" + (int) encoder.getSpeed(iter.getFlags()));
+                        //g2.setColor(Color.BLACK);                        
                         mg.plotEdge(g2, lat, lon, lat2, lon2);
                         g2.setColor(Color.BLACK);
                     }
@@ -213,7 +191,8 @@ public class MiniGraphUI
                     return;
 
                 makeTransparent(g2);
-                RoutingAlgorithm algo = prepare.createAlgo();
+                QueryGraph qGraph = new QueryGraph(graph).lookup(fromRes, toRes);
+                RoutingAlgorithm algo = algoFactory.createAlgo(qGraph, algoOpts);
                 if (algo instanceof DebugAlgo)
                 {
                     ((DebugAlgo) algo).setGraphics2D(g2);
@@ -221,9 +200,22 @@ public class MiniGraphUI
 
                 StopWatch sw = new StopWatch().start();
                 logger.info("start searching from:" + fromRes + " to:" + toRes + " " + weighting);
-                path = algo.calcPath(fromRes, toRes);
-//                mg.plotNode(g2, dijkstraFromId, Color.red);
-//                mg.plotNode(g2, dijkstraToId, Color.BLUE);
+
+//                GHPoint qp = fromRes.getQueryPoint();
+//                TIntHashSet set = index.findNetworkEntries(qp.lat, qp.lon, 1);
+//                TIntIterator nodeIter = set.iterator();
+//                DistanceCalc distCalc = new DistancePlaneProjection();
+//                System.out.println("set:" + set.size());
+//                while (nodeIter.hasNext())
+//                {
+//                    int nodeId = nodeIter.next();
+//                    double lat = graph.getNodeAccess().getLat(nodeId);
+//                    double lon = graph.getNodeAccess().getLon(nodeId);
+//                    int dist = (int) Math.round(distCalc.calcDist(qp.lat, qp.lon, lat, lon));
+//                    mg.plotText(g2, lat, lon, nodeId + ": " + dist);
+//                    mg.plotNode(g2, nodeId, Color.red);
+//                }
+                path = algo.calcPath(fromRes.getClosestNode(), toRes.getClosestNode());
                 sw.stop();
 
                 // if directed edges
@@ -280,7 +272,7 @@ public class MiniGraphUI
 
         double prevLat = Double.NaN;
         double prevLon = Double.NaN;
-        boolean plotNodes = true;
+        boolean plotNodes = false;
         TIntList nodes = tmpPath.calcNodes();
         if (plotNodes)
         {

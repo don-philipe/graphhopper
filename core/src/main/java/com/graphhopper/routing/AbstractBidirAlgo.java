@@ -18,6 +18,7 @@
 package com.graphhopper.routing;
 
 import com.graphhopper.routing.util.FlagEncoder;
+import com.graphhopper.routing.util.TraversalMode;
 import com.graphhopper.routing.util.Weighting;
 import com.graphhopper.storage.Graph;
 
@@ -39,15 +40,17 @@ public abstract class AbstractBidirAlgo extends AbstractRoutingAlgorithm
 
     protected abstract Path createAndInitPath();
 
+    protected abstract boolean isWeightLimitReached();
+
     abstract void checkState( int fromBase, int fromAdj, int toBase, int toAdj );
 
     abstract boolean fillEdgesFrom();
 
     abstract boolean fillEdgesTo();
 
-    public AbstractBidirAlgo( Graph graph, FlagEncoder encoder, Weighting weighting )
+    public AbstractBidirAlgo( Graph graph, FlagEncoder encoder, Weighting weighting, TraversalMode tMode )
     {
-        super(graph, encoder, weighting);
+        super(graph, encoder, weighting, tMode);
     }
 
     @Override
@@ -61,9 +64,9 @@ public abstract class AbstractBidirAlgo extends AbstractRoutingAlgorithm
         return extractPath();
     }
 
-    void runAlgo()
+    protected void runAlgo()
     {
-        while (!finished())
+        while (!finished() && !isWeightLimitReached())
         {
             if (!finishedFrom)
                 finishedFrom = !fillEdgesFrom();

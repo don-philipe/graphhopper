@@ -49,25 +49,28 @@ import org.slf4j.LoggerFactory;
  * <p/>
  * @author Peter Karich
  */
-public class PrepareContractionHierarchies extends AbstractAlgoPreparation<PrepareContractionHierarchies>
+public class PrepareContractionHierarchies extends AbstractAlgoPreparation implements RoutingAlgorithmFactory
 {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final PreparationWeighting prepareWeighting;
     private final FlagEncoder prepareFlagEncoder;
+    private final TraversalMode traversalMode;
     private EdgeSkipExplorer vehicleInExplorer;
     private EdgeSkipExplorer vehicleOutExplorer;
     private EdgeSkipExplorer vehicleAllExplorer;
     private EdgeSkipExplorer vehicleAllTmpExplorer;
     private EdgeSkipExplorer calcPrioAllExplorer;
-    private LevelGraph g;
+    private final LevelEdgeFilter levelFilter;
+    private int maxLevel;
+    private final LevelGraph prepareGraph;
+
     // the most important nodes comes last
     private GHTreeMapComposed sortedNodes;
     private int oldPriorities[];
     private final DataAccess originalEdges;
     private final Map<Shortcut, Shortcut> shortcuts = new HashMap<Shortcut, Shortcut>();
     private IgnoreNodeFilter ignoreNodeFilter;
-    private DijkstraOneToMany algo;
-    private boolean removesHigher2LowerEdges = true;
+    private DijkstraOneToMany prepareAlgo;
     private long counter;
     private int newShortcuts;
     private long dijkstraCount;
@@ -82,26 +85,21 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
     private double nodesContractedPercentage = 100;
     private double logMessagesPercentage = 20;
 
-    public PrepareContractionHierarchies( FlagEncoder encoder, Weighting weighting )
+    public PrepareContractionHierarchies( LevelGraph g, FlagEncoder encoder, Weighting weighting, TraversalMode traversalMode )
     {
-        prepareFlagEncoder = encoder;
+        this.prepareGraph = g;
+        this.traversalMode = traversalMode;
+        this.prepareFlagEncoder = encoder;
         long scFwdDir = encoder.setAccess(0, true, false);
+        levelFilter = new LevelEdgeFilter(prepareGraph);
 
         // shortcuts store weight in flags where we assume bit 1 and 2 are used for access restriction
         if ((scFwdDir & PrepareEncoder.getScFwdDir()) == 0)
-            throw new IllegalArgumentException("Currently only one vehicle is supported if you enable CH. "
-                    + "It seems that you have imported more than one.");
+            throw new IllegalArgumentException("Enabling the speed-up mode is currently only supported for the first vehicle.");
 
         prepareWeighting = new PreparationWeighting(weighting);
-        originalEdges = new GHDirectory("", DAType.RAM_INT).find("originalEdges");
+        originalEdges = new GHDirectory("", DAType.RAM_INT).find("original_edges");
         originalEdges.create(1000);
-    }
-
-    @Override
-    public PrepareContractionHierarchies setGraph( Graph g )
-    {
-        this.g = (LevelGraph) g;
-        return this;
     }
 
     /**
@@ -186,22 +184,9 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
         this.initialCollectionSize = initialCollectionSize;
     }
 
-    /**
-     * Disconnect is very important to improve query time and preparation if enabled. It will remove
-     * the edge going from the higher level node to the currently contracted one. But the original
-     * graph is no longer available, so it is only useful for bidirectional CH algorithms. Default
-     * is true.
-     */
-    public PrepareContractionHierarchies setRemoveHigher2LowerEdges( boolean removeHigher2LowerEdges )
-    {
-        this.removesHigher2LowerEdges = removeHigher2LowerEdges;
-        return this;
-    }
-
     @Override
-    public PrepareContractionHierarchies doWork()
+    public void doWork()
     {
-        checkGraph();
         if (prepareFlagEncoder == null)
             throw new IllegalStateException("No vehicle encoder set.");
 
@@ -213,18 +198,17 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
 
         initFromGraph();
         if (!prepareEdges())
-            return this;
+            return;
 
         if (!prepareNodes())
-            return this;
+            return;
 
         contractNodes();
-        return this;
     }
 
     boolean prepareEdges()
     {
-        EdgeIterator iter = g.getAllEdges();
+        EdgeIterator iter = prepareGraph.getAllEdges();
         int c = 0;
         while (iter.next())
         {
@@ -234,15 +218,15 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
         return c > 0;
     }
 
-    // TODO we can avoid node level if we store this into a temporary array and 
-    // disconnect all edges which goes from higher to lower level
-    // uninitialized nodes have a level of 0
-    // TODO we could avoid the second storage for skippedEdge as we could store that info into linkB or A if it is disconnected
     boolean prepareNodes()
     {
-        int len = g.getNodes();
+        int nodes = prepareGraph.getNodes();
+        for (int node = 0; node < nodes; node++)
+        {
+            prepareGraph.setLevel(node, maxLevel);
+        }
 
-        for (int node = 0; node < len; node++)
+        for (int node = 0; node < nodes; node++)
         {
             int priority = oldPriorities[node] = calculatePriority(node);
             sortedNodes.insert(node, priority);
@@ -256,7 +240,7 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
 
     void contractNodes()
     {
-        meanDegree = g.getAllEdges().getMaxId() / g.getNodes();
+        meanDegree = prepareGraph.getAllEdges().getCount() / prepareGraph.getNodes();
         int level = 1;
         counter = 0;
         int initSize = sortedNodes.getSize();
@@ -275,7 +259,7 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
 
         // disable as preparation is slower and query time does not benefit
         long lastNodesLazyUpdates = lastNodesLazyUpdatePercentage == 0
-                ? 0l
+                ? 0L
                 : Math.round(sortedNodes.getSize() / 100d * lastNodesLazyUpdatePercentage);
 
         // according to paper "Polynomial-time Construction of Contraction Hierarchies for Multi-criteria Objectives" by Funke and Storandt
@@ -291,7 +275,7 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
             neighborUpdate = false;
 
         StopWatch neighborSW = new StopWatch();
-        LevelGraphStorage lg = ((LevelGraphStorage) g);
+        LevelGraphStorage levelGraphCast = ((LevelGraphStorage) prepareGraph);
         while (!sortedNodes.isEmpty())
         {
             // periodically update priorities of ALL nodes            
@@ -299,10 +283,10 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
             {
                 periodSW.start();
                 sortedNodes.clear();
-                int len = g.getNodes();
+                int len = prepareGraph.getNodes();
                 for (int node = 0; node < len; node++)
                 {
-                    if (g.getLevel(node) != 0)
+                    if (prepareGraph.getLevel(node) != maxLevel)
                         continue;
 
                     int priority = oldPriorities[node] = calculatePriority(node);
@@ -316,8 +300,6 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
 
             if (counter % logSize == 0)
             {
-                // TODO necessary?
-                System.gc();
                 logger.info(Helper.nf(counter) + ", updates:" + updateCounter
                         + ", nodes: " + Helper.nf(sortedNodes.getSize())
                         + ", shortcuts:" + Helper.nf(newShortcuts)
@@ -327,7 +309,7 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
                         + ", t(lazy):" + (int) lazySW.getSeconds()
                         + ", t(neighbor):" + (int) neighborSW.getSeconds()
                         + ", meanDegree:" + (long) meanDegree
-                        + ", algo:" + algo.getMemoryUsageAsString()
+                        + ", algo:" + prepareAlgo.getMemoryUsageAsString()
                         + ", " + Helper.getMemInfo());
                 dijkstraSW = new StopWatch();
                 periodSW = new StopWatch();
@@ -353,25 +335,18 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
 
             // contract!            
             newShortcuts += addShortcuts(polledNode);
-            g.setLevel(polledNode, level);
+            prepareGraph.setLevel(polledNode, level);
             level++;
 
             if (sortedNodes.getSize() < nodesToAvoidContract)
-            {
-                while (!sortedNodes.isEmpty())
-                {
-                    polledNode = sortedNodes.pollKey();
-                    g.setLevel(polledNode, level);
-                }
+                // skipped nodes are already set to maxLevel
                 break;
-            }
 
             EdgeSkipIterator iter = vehicleAllExplorer.setBaseNode(polledNode);
             while (iter.next())
             {
                 int nn = iter.getAdjNode();
-                if (g.getLevel(nn) != 0)
-                    // already contracted no update necessary
+                if (prepareGraph.getLevel(nn) != maxLevel)
                     continue;
 
                 if (neighborUpdate && rand.nextInt(100) < neighborUpdatePercentage)
@@ -385,8 +360,7 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
                     neighborSW.stop();
                 }
 
-                if (removesHigher2LowerEdges)
-                    lg.disconnect(vehicleAllTmpExplorer, iter);
+                levelGraphCast.disconnect(vehicleAllTmpExplorer, iter);
             }
         }
 
@@ -397,7 +371,6 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
                 + ", new shortcuts: " + newShortcuts
                 + ", " + prepareWeighting
                 + ", " + prepareFlagEncoder
-                + ", removeHigher2LowerEdges:" + removesHigher2LowerEdges
                 + ", dijkstras:" + dijkstraCount
                 + ", t(dijk):" + (int) dijkstraSW.getSeconds()
                 + ", t(period):" + (int) periodSW.getSeconds()
@@ -407,12 +380,13 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
                 + ", initSize:" + initSize
                 + ", periodic:" + periodicUpdatesPercentage
                 + ", lazy:" + lastNodesLazyUpdatePercentage
-                + ", neighbor:" + neighborUpdatePercentage);
+                + ", neighbor:" + neighborUpdatePercentage
+                + ", " + Helper.getMemInfo());
     }
 
     public void close()
     {
-        algo.close();
+        prepareAlgo.close();
         originalEdges.close();
         sortedNodes = null;
         oldPriorities = null;
@@ -493,8 +467,6 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
             // and also in the graph for u->w. If existing AND identical weight => update setProperties.
             // Hint: shortcuts are always one-way due to distinct level of every node but we don't
             // know yet the levels so we need to determine the correct direction or if both directions
-            // minor improvement: if (shortcuts.containsKey(sc) 
-            // then two shortcuts with the same nodes (u<->n.adjNode) exists => check current shortcut against both
             Shortcut sc = new Shortcut(u_fromNode, w_toNode, existingDirectWeight, existingDistSum);
             if (shortcuts.containsKey(sc))
                 return;
@@ -586,48 +558,49 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
         {
             int u_fromNode = incomingEdges.getAdjNode();
             // accept only uncontracted nodes
-            if (g.getLevel(u_fromNode) != 0)
+            if (prepareGraph.getLevel(u_fromNode) != maxLevel)
                 continue;
 
             double v_u_dist = incomingEdges.getDistance();
-            double v_u_weight = prepareWeighting.calcWeight(incomingEdges, true);
+            double v_u_weight = prepareWeighting.calcWeight(incomingEdges, true, EdgeIterator.NO_EDGE);
             int skippedEdge1 = incomingEdges.getEdge();
             int incomingEdgeOrigCount = getOrigEdgeCount(skippedEdge1);
             // collect outgoing nodes (goal-nodes) only once
             EdgeIterator outgoingEdges = vehicleOutExplorer.setBaseNode(sch.getNode());
             // force fresh maps etc as this cannot be determined by from node alone (e.g. same from node but different avoidNode)
-            algo.clear();
+            prepareAlgo.clear();
             tmpDegreeCounter++;
             while (outgoingEdges.next())
             {
                 int w_toNode = outgoingEdges.getAdjNode();
                 // add only uncontracted nodes
-                if (g.getLevel(w_toNode) != 0 || u_fromNode == w_toNode)
+                if (prepareGraph.getLevel(w_toNode) != maxLevel || u_fromNode == w_toNode)
                     continue;
 
                 // Limit weight as ferries or forbidden edges can increase local search too much.
                 // If we decrease the correct weight we only explore less and introduce more shortcuts.
                 // I.e. no change to accuracy is made.
-                double existingDirectWeight = v_u_weight + prepareWeighting.calcWeight(outgoingEdges, false);
+                double existingDirectWeight = v_u_weight + prepareWeighting.calcWeight(outgoingEdges, false, incomingEdges.getEdge());
                 if (Double.isNaN(existingDirectWeight))
                     throw new IllegalStateException("Weighting should never return NaN values"
-                            + ", in:" + getCoords(incomingEdges, g) + ", out:" + getCoords(outgoingEdges, g)
+                            + ", in:" + getCoords(incomingEdges, prepareGraph) + ", out:" + getCoords(outgoingEdges, prepareGraph)
                             + ", dist:" + outgoingEdges.getDistance() + ", speed:" + prepareFlagEncoder.getSpeed(outgoingEdges.getFlags()));
 
-                if (existingDirectWeight >= Double.MAX_VALUE)
+                if (Double.isInfinite(existingDirectWeight))
                     continue;
+
                 double existingDistSum = v_u_dist + outgoingEdges.getDistance();
-                algo.setLimitWeight(existingDirectWeight)
-                        .setLimitVisitedNodes((int) meanDegree * 100)
+                prepareAlgo.setWeightLimit(existingDirectWeight);
+                prepareAlgo.setLimitVisitedNodes((int) meanDegree * 100)
                         .setEdgeFilter(ignoreNodeFilter.setAvoidNode(sch.getNode()));
 
                 dijkstraSW.start();
                 dijkstraCount++;
-                int endNode = algo.findEndNode(u_fromNode, w_toNode);
+                int endNode = prepareAlgo.findEndNode(u_fromNode, w_toNode);
                 dijkstraSW.stop();
 
                 // compare end node as the limit could force dijkstra to finish earlier
-                if (endNode == w_toNode && algo.getWeight(endNode) <= existingDirectWeight)
+                if (endNode == w_toNode && prepareAlgo.getWeight(endNode) <= existingDirectWeight)
                     // FOUND witness path, so do not add shortcut                
                     continue;
 
@@ -664,17 +637,17 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
                 if (iter.isShortcut() && iter.getAdjNode() == sc.to
                         && PrepareEncoder.canBeOverwritten(iter.getFlags(), sc.flags))
                 {
-                    if (sc.weight >= prepareWeighting.calcWeight(iter, false))
+                    if (sc.weight >= prepareWeighting.calcWeight(iter, false, EdgeIterator.NO_EDGE))
                         continue NEXT_SC;
 
                     if (iter.getEdge() == sc.skippedEdge1 || iter.getEdge() == sc.skippedEdge2)
                     {
                         throw new IllegalStateException("Shortcut cannot update itself! " + iter.getEdge()
                                 + ", skipEdge1:" + sc.skippedEdge1 + ", skipEdge2:" + sc.skippedEdge2
-                                + ", edge " + iter + ":" + getCoords(iter, g)
+                                + ", edge " + iter + ":" + getCoords(iter, prepareGraph)
                                 + ", sc:" + sc
-                                + ", skippedEdge1: " + getCoords(g.getEdgeProps(sc.skippedEdge1, sc.from), g)
-                                + ", skippedEdge2: " + getCoords(g.getEdgeProps(sc.skippedEdge2, sc.to), g)
+                                + ", skippedEdge1: " + getCoords(prepareGraph.getEdgeProps(sc.skippedEdge1, sc.from), prepareGraph)
+                                + ", skippedEdge2: " + getCoords(prepareGraph.getEdgeProps(sc.skippedEdge2, sc.to), prepareGraph)
                                 + ", neighbors:" + GHUtility.getNeighbors(iter));
                     }
 
@@ -691,7 +664,7 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
 
             if (!updatedInGraph)
             {
-                EdgeSkipIterState edgeState = g.shortcut(sc.from, sc.to);
+                EdgeSkipIterState edgeState = prepareGraph.shortcut(sc.from, sc.to);
                 // note: flags overwrite weight => call first
                 edgeState.setFlags(sc.flags);
                 edgeState.setWeight(sc.weight);
@@ -715,20 +688,37 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
 
     PrepareContractionHierarchies initFromGraph()
     {
-        checkGraph();
-        vehicleInExplorer = g.createEdgeExplorer(new DefaultEdgeFilter(prepareFlagEncoder, true, false));
-        vehicleOutExplorer = g.createEdgeExplorer(new DefaultEdgeFilter(prepareFlagEncoder, false, true));
-        vehicleAllExplorer = g.createEdgeExplorer(new DefaultEdgeFilter(prepareFlagEncoder, true, true));
-        vehicleAllTmpExplorer = g.createEdgeExplorer(new DefaultEdgeFilter(prepareFlagEncoder, true, true));
-        calcPrioAllExplorer = g.createEdgeExplorer(new DefaultEdgeFilter(prepareFlagEncoder, true, true));
-        ignoreNodeFilter = new IgnoreNodeFilter(g);
+        vehicleInExplorer = prepareGraph.createEdgeExplorer(new DefaultEdgeFilter(prepareFlagEncoder, true, false));
+        vehicleOutExplorer = prepareGraph.createEdgeExplorer(new DefaultEdgeFilter(prepareFlagEncoder, false, true));
+        final EdgeFilter allFilter = new DefaultEdgeFilter(prepareFlagEncoder, true, true);
+
+        // filter by vehicle and level number
+        final EdgeFilter accessWithLevelFilter = new LevelEdgeFilter(prepareGraph)
+        {
+            @Override
+            public final boolean accept( EdgeIteratorState edgeState )
+            {
+                if (!super.accept(edgeState))
+                    return false;
+
+                return allFilter.accept(edgeState);
+            }
+        };
+
+        maxLevel = prepareGraph.getNodes() + 1;
+        ignoreNodeFilter = new IgnoreNodeFilter(prepareGraph, maxLevel);
+        vehicleAllExplorer = prepareGraph.createEdgeExplorer(allFilter);
+        vehicleAllTmpExplorer = prepareGraph.createEdgeExplorer(allFilter);
+        calcPrioAllExplorer = prepareGraph.createEdgeExplorer(accessWithLevelFilter);
+
         // Use an alternative to PriorityQueue as it has some advantages: 
-        //   1. Gets automatically smaller if less entries are stored => less total RAM used (as Graph is increasing until the end)
+        //   1. Gets automatically smaller if less entries are stored => less total RAM used. 
+        //      Important because Graph is increasing until the end.
         //   2. is slightly faster
-        //   but we need additional priorities array to keep old value which is necessary for update method
+        //   but we need the additional oldPriorities array to keep the old value which is necessary for the update method
         sortedNodes = new GHTreeMapComposed();
-        oldPriorities = new int[g.getNodes()];
-        algo = new DijkstraOneToMany(g, prepareFlagEncoder, prepareWeighting);
+        oldPriorities = new int[prepareGraph.getNodes()];
+        prepareAlgo = new DijkstraOneToMany(prepareGraph, prepareFlagEncoder, prepareWeighting, traversalMode);
         return this;
     }
 
@@ -740,11 +730,13 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
     static class IgnoreNodeFilter implements EdgeFilter
     {
         int avoidNode;
+        int maxLevel;
         LevelGraph graph;
 
-        public IgnoreNodeFilter( LevelGraph g )
+        public IgnoreNodeFilter( LevelGraph g, int maxLevel )
         {
             this.graph = g;
+            this.maxLevel = maxLevel;
         }
 
         public IgnoreNodeFilter setAvoidNode( int node )
@@ -756,16 +748,16 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
         @Override
         public final boolean accept( EdgeIteratorState iter )
         {
-            // ignore if it is skipNode or a adjNode already contracted
+            // ignore if it is skipNode or adjNode is already contracted
             int node = iter.getAdjNode();
-            return avoidNode != node && graph.getLevel(node) == 0;
+            return avoidNode != node && graph.getLevel(node) == maxLevel;
         }
     }
 
     private void setOrigEdgeCount( int index, int value )
     {
         long tmp = (long) index * 4;
-        originalEdges.incCapacity(tmp + 4);
+        originalEdges.ensureCapacity(tmp + 4);
         originalEdges.setInt(tmp, value);
     }
 
@@ -773,115 +765,112 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
     {
         // TODO possible memory usage improvement: avoid storing the value 1 for normal edges (does not change)!
         long tmp = (long) index * 4;
-        originalEdges.incCapacity(tmp + 4);
+        originalEdges.ensureCapacity(tmp + 4);
         return originalEdges.getInt(tmp);
     }
 
     @Override
-    public RoutingAlgorithm createAlgo()
+    public RoutingAlgorithm createAlgo( Graph graph, AlgorithmOptions opts )
     {
-        checkGraph();
-        // do not change weight within DijkstraBidirectionRef => so use ShortestWeighting
-        DijkstraBidirectionRef dijkstrabi = new DijkstraBidirectionRef(g, prepareFlagEncoder, prepareWeighting)
+        AbstractBidirAlgo algo;
+        if (AlgorithmOptions.ASTAR_BI.equals(opts.getAlgorithm()))
         {
-            @Override
-            protected void initCollections( int nodes )
+            AStarBidirection astarBi = new AStarBidirection(graph, prepareFlagEncoder, prepareWeighting, traversalMode)
             {
-                // algorithm with CH does not need that much memory pre allocated
-                super.initCollections(Math.min(initialCollectionSize, nodes));
-            }
+                @Override
+                protected void initCollections( int nodes )
+                {
+                    // algorithm with CH does not need that much memory pre allocated
+                    super.initCollections(Math.min(initialCollectionSize, nodes));
+                }
 
-            @Override
-            public boolean finished()
-            {
-                // we need to finish BOTH searches for CH!
-                if (finishedFrom && finishedTo)
-                    return true;
+                @Override
+                protected boolean finished()
+                {
+                    // we need to finish BOTH searches for CH!
+                    if (finishedFrom && finishedTo)
+                        return true;
 
-                // changed also the final finish condition for CH                
-                return currFrom.weight >= bestPath.getWeight() && currTo.weight >= bestPath.getWeight();
-            }
+                    if (currFrom.weight + currTo.weight > weightLimit)
+                        return true;
 
-            @Override
-            protected Path createAndInitPath()
-            {
-                bestPath = new Path4CH(graph, flagEncoder);
-                return bestPath;
-            }
+                    // changed finish condition for CH
+                    return currFrom.weight >= bestPath.getWeight() && currTo.weight >= bestPath.getWeight();
+                }
 
-            @Override
-            public String getName()
-            {
-                return "dijkstrabiCH";
-            }
+                @Override
 
-            @Override
-            public String toString()
-            {
-                return getName() + "|" + prepareWeighting;
-            }
-        };
+                protected Path createAndInitPath()
+                {
+                    bestPath = new Path4CH(graph, graph.getBaseGraph(), flagEncoder);
+                    return bestPath;
+                }
 
-        if (!removesHigher2LowerEdges)
-            dijkstrabi.setEdgeFilter(new LevelEdgeFilter(g));
+                @Override
+                public String getName()
+                {
+                    return "astarbiCH";
+                }
 
-        return dijkstrabi;
-    }
+                @Override
 
-    public AStarBidirection createAStar()
-    {
-        checkGraph();
-        AStarBidirection astar = new AStarBidirection(g, prepareFlagEncoder, prepareWeighting)
+                public String toString()
+                {
+                    return getName() + "|" + prepareWeighting;
+                }
+            };
+            algo = astarBi;
+        } else if (AlgorithmOptions.DIJKSTRA_BI.equals(opts.getAlgorithm()))
         {
-            @Override
-            protected void initCollections( int nodes )
+            algo = new DijkstraBidirectionRef(graph, prepareFlagEncoder, prepareWeighting, traversalMode)
             {
-                // algorithm with CH does not need that much memory pre allocated
-                super.initCollections(Math.min(initialCollectionSize, nodes));
-            }
+                @Override
+                protected void initCollections( int nodes )
+                {
+                    // algorithm with CH does not need that much memory pre allocated
+                    super.initCollections(Math.min(initialCollectionSize, nodes));
+                }
 
-            @Override
-            protected boolean finished()
-            {
-                // we need to finish BOTH searches for CH!
-                if (finishedFrom && finishedTo)
-                    return true;
+                @Override
+                public boolean finished()
+                {
+                    // we need to finish BOTH searches for CH!
+                    if (finishedFrom && finishedTo)
+                        return true;
 
-                // changed finish condition for CH
-                double tmpWeight = bestPath.getWeight() * approximationFactor;
-                return currFrom.weight >= tmpWeight && currTo.weight >= tmpWeight;
-            }
+                    if (currFrom.weight + currTo.weight > weightLimit)
+                        return true;
 
-            @Override
-            protected Path createAndInitPath()
-            {
-                bestPath = new Path4CH(graph, flagEncoder);
-                return bestPath;
-            }
+                    // changed also the final finish condition for CH                
+                    return currFrom.weight >= bestPath.getWeight() && currTo.weight >= bestPath.getWeight();
+                }
 
-            @Override
-            public String getName()
-            {
-                return "astarbiCH";
-            }
+                @Override
+                protected Path createAndInitPath()
+                {
+                    bestPath = new Path4CH(graph, graph.getBaseGraph(), flagEncoder);
+                    return bestPath;
+                }
 
-            @Override
-            public String toString()
-            {
-                return getName() + "|" + prepareWeighting;
-            }
-        };
+                @Override
+                public String getName()
+                {
+                    return "dijkstrabiCH";
+                }
 
-        if (!removesHigher2LowerEdges)
-            astar.setEdgeFilter(new LevelEdgeFilter(g));
+                @Override
+                public String toString()
+                {
+                    return getName() + "|" + prepareWeighting;
+                }
+            };
+        } else
+        {
+            throw new UnsupportedOperationException("Algorithm " + opts.getAlgorithm() + " not supported for Contraction Hierarchies");
+        }
 
-        return astar;
-    }
-
-    private void checkGraph()
-    {
-        if (g == null)
-            throw new NullPointerException("setGraph before usage");
+        algo.setEdgeFilter(levelFilter);
+        return algo;
     }
 
     private static class PriorityNode implements Comparable<PriorityNode>
@@ -961,5 +950,11 @@ public class PrepareContractionHierarchies extends AbstractAlgoPreparation<Prepa
 
             return str + to + ", weight:" + weight + " (" + skippedEdge1 + "," + skippedEdge2 + ")";
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return "PREPARE|CH|dijkstrabi";
     }
 }
