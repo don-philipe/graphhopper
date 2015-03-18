@@ -34,8 +34,8 @@ import static org.junit.Assert.*;
  */
 public class WheelchairFlagEncoderTest
 {
-    private final EncodingManager encodingManager = new EncodingManager("CAR,WHEELCHAIR");
-    private final WheelchairFlagEncoder wheelchairEncoder = (WheelchairFlagEncoder) encodingManager.getEncoder("WHEELCHAIR");
+    private final EncodingManager encodingManager = new EncodingManager("car,wheelchair");
+    private final WheelchairFlagEncoder wheelchairEncoder = (WheelchairFlagEncoder) encodingManager.getEncoder("wheelchair");
 
     @Test
     public void testGetSpeed()
@@ -58,7 +58,7 @@ public class WheelchairFlagEncoderTest
     @Test
     public void testCombined()
     {
-        FlagEncoder carEncoder = encodingManager.getEncoder("CAR");
+        FlagEncoder carEncoder = encodingManager.getEncoder("car");
         long fl = wheelchairEncoder.setProperties(10, true, true) | carEncoder.setProperties(100, true, false);
         assertEquals(10, wheelchairEncoder.getSpeed(fl), 1e-1);
         assertTrue(wheelchairEncoder.isForward(fl));
@@ -175,11 +175,11 @@ public class WheelchairFlagEncoderTest
         long flags_r20 = wheelchairEncoder.getTurnFlags(true, 20);
         long flags_20 = wheelchairEncoder.getTurnFlags(false, 20);
 
-        assertEquals(0, wheelchairEncoder.getTurnCost(flags_r0));
-        assertEquals(0, wheelchairEncoder.getTurnCost(flags_0));
+        assertEquals(0, wheelchairEncoder.getTurnCost(flags_r0), 1e-1);
+        assertEquals(0, wheelchairEncoder.getTurnCost(flags_0), 1e-1);
 
-        assertEquals(0, wheelchairEncoder.getTurnCost(flags_r20));
-        assertEquals(0, wheelchairEncoder.getTurnCost(flags_20));
+        assertEquals(0, wheelchairEncoder.getTurnCost(flags_r20), 1e-1);
+        assertEquals(0, wheelchairEncoder.getTurnCost(flags_20), 1e-1);
 
         assertFalse(wheelchairEncoder.isTurnRestricted(flags_r0));
         assertFalse(wheelchairEncoder.isTurnRestricted(flags_0));
