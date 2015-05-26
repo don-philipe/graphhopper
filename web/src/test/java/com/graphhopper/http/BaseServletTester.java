@@ -20,11 +20,9 @@ package com.graphhopper.http;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.servlet.GuiceFilter;
 import com.graphhopper.util.CmdArgs;
 import com.graphhopper.util.Downloader;
 import org.json.JSONObject;
-import org.junit.AfterClass;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +32,7 @@ import org.slf4j.LoggerFactory;
 public class BaseServletTester
 {
     private static GHServer server;
-    protected static Logger logger = LoggerFactory.getLogger(GraphHopperServletIT.class);
+    protected static Logger logger = LoggerFactory.getLogger(BaseServletTester.class);
     protected static int port;
     protected Injector injector;
 
@@ -62,7 +60,7 @@ public class BaseServletTester
         server = new GHServer(args);
 
         if (injector == null)
-            setUpGuice(new DefaultModule(args), new GHServletModule());
+            setUpGuice(new DefaultModule(args), new GHServletModule(args));
 
         for (int i = 0; i < retryCount; i++)
         {
@@ -119,5 +117,5 @@ public class BaseServletTester
         String url = getTestAPIUrl() + "?" + resQuery;
         Downloader downloader = new Downloader("web integration tester");
         return new JSONObject(downloader.downloadAsString(url));
-    }
+    }    
 }

@@ -17,6 +17,9 @@
  */
 package com.graphhopper.util;
 
+import static java.lang.Math.cos;
+import static java.lang.Math.toRadians;
+
 /**
  * Calculates the angle of a turn, defined by three points. The fast atan2 method is from Jim Shima,
  * 1999, http://www.dspguru.com/dsp/tricks/fixed-point-atan2-with-self-normalization
@@ -58,7 +61,8 @@ public class AngleCalc
      */
     public double calcOrientation( double lat1, double lon1, double lat2, double lon2 )
     {
-        return atan2((lat2 - lat1), (lon2 - lon1));
+        double shrinkFactor = cos(toRadians((lat1 + lat2) / 2));
+        return Math.atan2((lat2 - lat1), shrinkFactor * (lon2 - lon1));
     }
 
     /**
@@ -87,13 +91,13 @@ public class AngleCalc
     }
 
     /**
-     * Calculate Azimuth for a line given by two coordinates. Direction in 'degree' where 0 is
-     * north, 90 is east, 180 is south and 270 is west.
+     * Calculate the azimuth in degree for a line given by two coordinates. Direction in 'degree'
+     * where 0 is north, 90 is east, 180 is south and 270 is west.
      */
     double calcAzimuth( double lat1, double lon1, double lat2, double lon2 )
     {
         double orientation = -calcOrientation(lat1, lon1, lat2, lon2);
-        orientation = Helper.round4(orientation + Math.PI / 2);        
+        orientation = Helper.round4(orientation + Math.PI / 2);
         if (orientation < 0)
             orientation += 2 * Math.PI;
 

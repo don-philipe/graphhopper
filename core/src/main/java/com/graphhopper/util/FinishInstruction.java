@@ -22,26 +22,28 @@ package com.graphhopper.util;
  */
 public class FinishInstruction extends Instruction
 {
-    private int count = -1;
-
     public FinishInstruction( final double lat, final double lon, final double ele )
     {
         super(FINISH, "", InstructionAnnotation.EMPTY, new PointList(2, true)
-        {   
+        {
             {
                 add(lat, lon, ele);
             }
         });
     }
 
-    void setVia( int i )
+    public FinishInstruction( PointAccess pointAccess, int node )
     {
-        sign = REACHED_VIA;
-        count = i;
+        this(pointAccess.getLatitude(node), pointAccess.getLongitude(node),
+                pointAccess.is3D() ? pointAccess.getElevation(node) : 0);
     }
 
-    public int getViaPosition()
+    @Override
+    public String getTurnDescription( Translation tr )
     {
-        return count;
+        if (rawName)
+            return getName();
+
+        return tr.tr("finish");
     }
 }

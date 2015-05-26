@@ -20,7 +20,7 @@ package com.graphhopper.routing.util;
 import com.graphhopper.reader.OSMRelation;
 import com.graphhopper.reader.OSMWay;
 import static com.graphhopper.routing.util.BikeCommonFlagEncoder.PUSHING_SECTION_SPEED;
-import static com.graphhopper.routing.util.BikeCommonFlagEncoder.PriorityCode.*;
+import static com.graphhopper.routing.util.PriorityCode.*;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -69,6 +69,33 @@ public class RacingBikeFlagEncoderTest extends AbstractBikeFlagEncoderTester
     }
 
     @Test
+    @Override
+    public void testSacScale()
+    {
+        OSMWay way = new OSMWay(1);
+        way.setTag("highway", "service");
+        way.setTag("sac_scale", "mountain_hiking");
+        // disallow
+        assertEquals(0, encoder.acceptWay(way));
+        
+        way.setTag("highway", "path");
+        way.setTag("sac_scale", "hiking");
+        // disallow
+        assertEquals(0, encoder.acceptWay(way));
+        
+        way.setTag("highway", "cycleway");
+        way.setTag("sac_scale", "hiking");
+        // but allow this as there is no reason for not allowing it
+        assertTrue(encoder.acceptWay(way) > 0);
+
+        // This looks to be tagging error:
+        way.setTag("highway", "cycleway");
+        way.setTag("sac_scale", "mountain_hiking");
+        // we are coutious and disallow this
+        assertEquals(0, encoder.acceptWay(way));
+    }
+
+    @Test
     public void testGetSpeed()
     {
         long result = encoder.setProperties(10, true, true);
@@ -92,10 +119,10 @@ public class RacingBikeFlagEncoderTest extends AbstractBikeFlagEncoderTester
     public void testHandleWayTagsInfluencedByRelation()
     {
         OSMWay osmWay = new OSMWay(1);
-        osmWay.setTag("highway", "track");        
+        osmWay.setTag("highway", "track");
         assertEquals(PUSHING_SECTION_SPEED / 2, getSpeedFromFlags(osmWay), 1e-1);
         assertEquals("get off the bike, unpaved", getWayTypeFromFlags(osmWay, 0));
-        
+
         // relation code is PREFER
         long allowed = encoder.acceptBit;
         OSMRelation osmRel = new OSMRelation(1);

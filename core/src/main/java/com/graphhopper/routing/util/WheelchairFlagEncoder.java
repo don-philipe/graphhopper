@@ -1,12 +1,11 @@
 /*
- *  Licensed to GraphHopper and Peter Karich under one or more contributor license
- *  agreements. See the NOTICE file distributed with this work for
+ *  Licensed to GraphHopper and Peter Karich under one or more contributor
+ *  license agreements. See the NOTICE file distributed with this work for 
  *  additional information regarding copyright ownership.
  *
  *  GraphHopper licenses this file to you under the Apache License,
- *  Version 2.0 (the "License"); you may not use this file except
- *  in compliance with the License. You may obtain a copy of the
- *  License at
+ *  Version 2.0 (the "License"); you may not use this file except in 
+ *  compliance with the License. You may obtain a copy of the License at
  *
  *       http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -20,10 +19,12 @@ package com.graphhopper.routing.util;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Arrays;
+import java.util.TreeMap;
 
-import com.graphhopper.reader.OSMNode;
 import com.graphhopper.reader.OSMRelation;
 import com.graphhopper.reader.OSMWay;
+import static com.graphhopper.routing.util.PriorityCode.*;
 
 /**
  * Mainly copied from FootFlagEncoder.
@@ -36,13 +37,15 @@ import com.graphhopper.reader.OSMWay;
  */
 public class WheelchairFlagEncoder extends AbstractFlagEncoder
 {
-    static final int SLOW = 2;
-    static final int MEAN = 5;
-    static final int FERRY = 10;
-    private int safeWayBit = 0;
+    static final int SLOW_SPEED = 2;
+    static final int MEAN_SPEED = 5;
+    static final int FERRY_SPEED = 10;
+    private EncodedValue preferWayEncoder;
+    private EncodedValue relationCodeEncoder;
     protected HashSet<String> sidewalks = new HashSet<String>();
     private final Set<String> safeHighwayTags = new HashSet<String>();
     private final Set<String> allowedHighwayTags = new HashSet<String>();
+    private final Set<String> avoidHighwayTags = new HashSet<String>();
 
     /**
      * Should be only instantied via EncodingManager
@@ -52,16 +55,20 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         this(4, 1);
     }
     
+    public WheelchairFlagEncoder( String propertiesStr )
+    {
+        this((int) parseLong(propertiesStr, "speedBits", 4),
+                parseDouble(propertiesStr, "speedFactor", 1));
+    }
+    
     protected WheelchairFlagEncoder( int speedBits, double speedFactor )
     {
-        super(speedBits, speedFactor);
-        restrictions = new String[]
-        {
-            "wheelchair", "access"
-        };
+        super(speedBits, speedFactor, 0);
+        restrictions.addAll(Arrays.asList("wheelchair", "access"));
         restrictedValues.add("private");
         restrictedValues.add("no");
         restrictedValues.add("restricted");
+        restrictedValues.add("military");
 
         intendedValues.add("yes");
         intendedValues.add("designated");
@@ -73,6 +80,7 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         sidewalks.add("left");
         sidewalks.add("right");
 
+        setBlockByDefault(false);
         potentialBarriers.add("gate");
         //potentialBarriers.add( "lift_gate" );
         potentialBarriers.add("swing_gate");
@@ -88,6 +96,15 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         safeHighwayTags.add("residential");
         safeHighwayTags.add("service");
         
+        avoidHighwayTags.add("trunk");
+        avoidHighwayTags.add("trunk_link");
+        avoidHighwayTags.add("primary");
+        avoidHighwayTags.add("primary_link");
+        avoidHighwayTags.add("tertiary");
+        avoidHighwayTags.add("tertiary_link");
+        // for now no explicit avoiding #257
+        //avoidHighwayTags.add("cycleway"); 
+
         allowedHighwayTags.addAll(safeHighwayTags);
 //      allowedHighwayTags.add("trunk");
 //      allowedHighwayTags.add("trunk_link");
@@ -107,20 +124,29 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         // first two bits are reserved for route handling in superclass
         shift = super.defineWayBits(index, shift);
         // larger value required - ferries are faster than wheelchairs
-        speedEncoder = new EncodedDoubleValue("Speed", shift, speedBits, speedFactor, MEAN, FERRY);
+        speedEncoder = new EncodedDoubleValue("Speed", shift, speedBits, speedFactor, MEAN_SPEED, FERRY_SPEED);
         shift += speedBits;
 
-        safeWayBit = 1 << shift++;
+        preferWayEncoder = new EncodedValue("PreferWay", shift, 3, 1, 0, 7);
+        shift += preferWayEncoder.getBits();
         return shift;
     }
     
+    @Override
+    public int defineRelationBits( int index, int shift )
+    {
+        relationCodeEncoder = new EncodedValue("RelationCode", shift, 3, 1, 0, 7);
+        return shift + relationCodeEncoder.getBits();
+    }
+
     /**
      * Wheelchair flag encoder does not provide any turn cost / restrictions.
      * @param index
+     * @param shift
      * @return 
      */
     @Override
-    public int defineTurnBits( int index, int shift, int numberCostsBits )
+    public int defineTurnBits( int index, int shift )
     {
         return shift;
     }
@@ -144,7 +170,7 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
      * @return 0
      */    
     @Override
-    public int getTurnCosts( long flag )
+    public double getTurnCost( long flag )
     {
         return 0;
     }
@@ -190,14 +216,6 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
             return 0;
         }
 
-//        String sacScale = way.getTag("sac_scale");
-//        if (sacScale != null)
-//        {
-//            if (!"hiking".equals(sacScale) && !"mountain_hiking".equals(sacScale))
-//                // other scales are too dangerous, see http://wiki.openstreetmap.org/wiki/Key:sac_scale
-//                return 0;
-//        }
-
         if (way.hasTag("sidewalk", sidewalks))
             return acceptBit;
 
@@ -234,67 +252,152 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         return acceptBit;
     }
 
-        @Override
+    @Override
     public long handleRelationTags( OSMRelation relation, long oldRelationFlags )
     {
+        int code = 0;
+        if (relation.hasTag("route", "ferry"))
+        {
+            code = PriorityCode.AVOID_IF_POSSIBLE.getValue();
+        }
+
+        int oldCode = (int) relationCodeEncoder.getValue(oldRelationFlags);
+        if (oldCode < code)
+            return relationCodeEncoder.setValue(0, code);
         return oldRelationFlags;
     }
     
     @Override
-    public long handleWayTags(OSMWay way, long allowed, long relationCode)
+    public long handleWayTags(OSMWay way, long allowed, long relationFlags)
     {
-        if ((allowed & acceptBit) == 0)
+        if (!isAccept(allowed))
             return 0;
 
         long encoded;
-        if ((allowed & ferryBit) == 0)
+        if (!isFerry(allowed))
         {
-            String sacScale = way.getTag("sac_scale");
-            if (sacScale != null)
-            {
-                if ("hiking".equals(sacScale))
-                    encoded = speedEncoder.setDoubleValue(0, MEAN);
-                else
-                    encoded = speedEncoder.setDoubleValue(0, SLOW);
-            } else
-            {
-                encoded = speedEncoder.setDoubleValue(0, MEAN);
-            }
+            encoded = speedEncoder.setDoubleValue(0, MEAN_SPEED);
             encoded |= directionBitMask;
 
-            // mark safe ways or ways with cycle lanes
-            if (safeHighwayTags.contains(way.getTag("highway"))
-                    || way.hasTag("sidewalk", sidewalks))
+            int priorityFromRelation = 0;
+            if (relationFlags != 0)
+                priorityFromRelation = (int) relationCodeEncoder.getValue(relationFlags);
+
+            encoded = setLong(encoded, PriorityWeighting.KEY, handlePriority(way, priorityFromRelation));
+
+            boolean isRoundabout = way.hasTag("junction", "roundabout");
+            if (isRoundabout)
             {
-                encoded |= safeWayBit;
+                encoded = setBool(encoded, K_ROUNDABOUT, true);
             }
 
-        } else
+        }
+        else
         {
-            encoded = handleFerryTags(way, SLOW, MEAN, FERRY);
+            encoded = handleFerryTags(way, SLOW_SPEED, MEAN_SPEED, FERRY_SPEED);
             encoded |= directionBitMask;
         }
 
         return encoded;
     }
     
-//    @Override
-//    public long handleNodeTags( OSMNode node )
-//    {
-//        // movable barriers block if they are not marked as passable
-//        if (node.hasTag("barrier", potentialBarriers)
-//                && !node.hasTag(restrictions, intendedValues)
-//                && !node.hasTag("locked", "no"))
-//        {
-//            return directionBitMask;
-//        }
-//
-//        if ((node.hasTag("highway", "ford") || node.hasTag("ford"))
-//                && !node.hasTag(restrictions, intendedValues))
-//        {
-//            return directionBitMask;
-//        }
-//
-//        return 0;
-//    }
+    @Override
+    public double getDouble( long flags, int key )
+    {
+        switch (key)
+        {
+            case PriorityWeighting.KEY:
+                double prio = preferWayEncoder.getValue(flags);
+                if (prio == 0)
+                    return (double) UNCHANGED.getValue() / BEST.getValue();
+
+                return prio / BEST.getValue();
+            default:
+                return super.getDouble(flags, key);
+}
+    }
+
+    @Override
+    public long getLong( long flags, int key )
+    {
+        switch (key)
+        {
+            case PriorityWeighting.KEY:
+                return preferWayEncoder.getValue(flags);
+            default:
+                return super.getLong(flags, key);
+        }
+    }
+
+    @Override
+    public long setLong( long flags, int key, long value )
+    {
+        switch (key)
+        {
+            case PriorityWeighting.KEY:
+                return preferWayEncoder.setValue(flags, value);
+            default:
+                return super.setLong(flags, key, value);
+        }
+    }
+
+    protected int handlePriority( OSMWay way, int priorityFromRelation )
+    {
+        TreeMap<Double, Integer> weightToPrioMap = new TreeMap<Double, Integer>();
+        if (priorityFromRelation == 0)
+            weightToPrioMap.put(0d, UNCHANGED.getValue());
+        else
+            weightToPrioMap.put(110d, priorityFromRelation);
+
+        collect(way, weightToPrioMap);
+
+        // pick priority with biggest order value
+        return weightToPrioMap.lastEntry().getValue();
+    }
+
+    /**
+     * @param weightToPrioMap associate a weight with every priority. This sorted map allows
+     * subclasses to 'insert' more important priorities as well as overwrite determined priorities.
+     */
+    void collect( OSMWay way, TreeMap<Double, Integer> weightToPrioMap )
+    {
+        String highway = way.getTag("highway");
+        if (way.hasTag("foot", "designated"))
+            weightToPrioMap.put(100d, PREFER.getValue());
+
+        double maxSpeed = getMaxSpeed(way);
+        if (safeHighwayTags.contains(highway) || maxSpeed > 0 && maxSpeed <= 20)
+        {
+            weightToPrioMap.put(40d, PREFER.getValue());
+            if (way.hasTag("tunnel", intendedValues))
+                weightToPrioMap.put(40d, UNCHANGED.getValue());
+        }
+
+        if (way.hasTag("bicycle", "official") || way.hasTag("bicycle", "designated"))
+        {
+            weightToPrioMap.put(44d, AVOID_IF_POSSIBLE.getValue());
+        }
+
+        if (way.hasTag("sidewalk", sidewalks))
+        {
+            weightToPrioMap.put(45d, PREFER.getValue());
+        }
+
+        if (avoidHighwayTags.contains(highway) || maxSpeed > 50)
+        {
+            weightToPrioMap.put(50d, REACH_DEST.getValue());
+
+            if (way.hasTag("tunnel", intendedValues))
+                weightToPrioMap.put(50d, AVOID_AT_ALL_COSTS.getValue());
+        }
+    }
+
+    @Override
+    public boolean supports( Class<?> feature )
+    {
+        if (super.supports(feature))
+            return true;
+
+        return PriorityWeighting.class.isAssignableFrom(feature);
+    }
 }

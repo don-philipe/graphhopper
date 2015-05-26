@@ -37,32 +37,27 @@ public class PreparationWeighting implements Weighting
     }
 
     @Override
-    public double getMinWeight( double distance )
+    public final double getMinWeight( double distance )
     {
         return userWeighting.getMinWeight(distance);
     }
 
     @Override
-    public double calcWeight( EdgeIteratorState edge, boolean reverse )
+    public double calcWeight( EdgeIteratorState edgeState, boolean reverse, int prevOrNextEdgeId )
     {
-        if (edge instanceof EdgeSkipIterState)
+        if (edgeState instanceof EdgeSkipIterState)
         {
-            EdgeSkipIterState tmp = (EdgeSkipIterState) edge;
+            EdgeSkipIterState tmp = (EdgeSkipIterState) edgeState;
             if (tmp.isShortcut())
                 // if a shortcut is in both directions the weight is identical => no need for 'reverse'
                 return tmp.getWeight();
         }
-        return userWeighting.calcWeight(edge, reverse);
+        return userWeighting.calcWeight(edgeState, reverse, prevOrNextEdgeId);
     }
 
     @Override
     public String toString()
     {
         return "PREPARE+" + userWeighting.toString();
-    }
-
-    Weighting getUserWeighting()
-    {
-        return userWeighting;
     }
 }
