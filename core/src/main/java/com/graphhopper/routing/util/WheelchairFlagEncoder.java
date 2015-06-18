@@ -222,6 +222,11 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         // no need to evaluate ferries or fords - already included here
         if (way.hasTag("wheelchair", intendedValues))
             return acceptBit;
+        
+        // sometimes footways are tagged as paths
+        // but hikingtrails are also often tagged as paths, so some more tagevaluation is required here
+        if(way.hasTag("highway", "path") && way.hasTag("bicycle", intendedValues))
+            return acceptBit;
 
         if (!allowedHighwayTags.contains(highwayValue))
             return 0;
