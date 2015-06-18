@@ -125,7 +125,7 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         shift = super.defineWayBits(index, shift);
         // larger value required - ferries are faster than wheelchairs
         speedEncoder = new EncodedDoubleValue("Speed", shift, speedBits, speedFactor, MEAN_SPEED, FERRY_SPEED);
-        shift += speedBits;
+        shift += speedEncoder.getBits();
 
         preferWayEncoder = new EncodedValue("PreferWay", shift, 3, 1, 0, 7);
         shift += preferWayEncoder.getBits();
@@ -176,9 +176,9 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
     }
     
     @Override
-    public String toString()
+    public long getTurnFlags( boolean restricted, double costs )
     {
-        return "wheelchair";
+        return 0;
     }
 
     /**
@@ -229,8 +229,8 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         if (way.hasTag("motorroad", "yes"))
             return 0;
 
-        // do not get our feet wet, "yes" is already included above
-        if (way.hasTag("highway", "ford") || way.hasTag("ford"))
+        // do not get our wheels wet
+        if (isBlockFords() && (way.hasTag("highway", "ford") || way.hasTag("ford")))
             return 0;
 
 //        if (way.hasTag("bicycle", "official"))
@@ -394,5 +394,11 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
             return true;
 
         return PriorityWeighting.class.isAssignableFrom(feature);
+    }
+    
+    @Override
+    public String toString()
+    {
+        return "wheelchair";
     }
 }
