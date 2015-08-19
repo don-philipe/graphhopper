@@ -19,11 +19,17 @@ package com.graphhopper.routing.util;
 
 import com.graphhopper.reader.OSMNode;
 import com.graphhopper.reader.OSMWay;
+
 import static com.graphhopper.routing.util.PriorityCode.*;
+
 import com.graphhopper.util.Translation;
+
 import static com.graphhopper.util.TranslationMapTest.SINGLETON;
+
 import java.util.Locale;
+
 import static org.junit.Assert.*;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -353,17 +359,12 @@ public abstract class AbstractBikeFlagEncoderTester
     }
 
     @Test
-    public void testMaxAndMinSpeed()
+    public void testPreferenceForSlowSpeed()
     {
         OSMWay osmWay = new OSMWay(1);
         osmWay.setTag("highway", "tertiary");
         assertEquals(30, encoder.getSpeed(encoder.setSpeed(0, encoder.applyMaxSpeed(osmWay, 49, false))), 1e-1);
         assertPriority(PREFER.getValue(), osmWay);
-
-        osmWay.setTag("highway", "tertiary");
-        osmWay.setTag("maxspeed", "90");
-        assertEquals(20, encoder.getSpeed(encoder.setSpeed(0, encoder.applyMaxSpeed(osmWay, 20, false))), 1e-1);
-        assertPriority(REACH_DEST.getValue(), osmWay);
     }
 
     @Test
@@ -387,10 +388,10 @@ public abstract class AbstractBikeFlagEncoderTester
     @Test
     public void testPriority()
     {
-        long flags = encoder.setLong(0L, PriorityWeighting.KEY, PriorityCode.BEST.getValue());
+        long flags = encoder.priorityWayEncoder.setValue(0, PriorityCode.BEST.getValue());
         assertEquals(1, encoder.getDouble(flags, PriorityWeighting.KEY), 1e-3);
 
-        flags = encoder.setLong(0L, PriorityWeighting.KEY, PriorityCode.AVOID_IF_POSSIBLE.getValue());
+        flags = encoder.priorityWayEncoder.setValue(0, PriorityCode.AVOID_IF_POSSIBLE.getValue());
         assertEquals(3d / 7d, encoder.getDouble(flags, PriorityWeighting.KEY), 1e-3);
     }
 

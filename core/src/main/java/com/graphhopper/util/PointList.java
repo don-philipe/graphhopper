@@ -20,6 +20,7 @@ package com.graphhopper.util;
 
 import com.graphhopper.util.shapes.GHPoint;
 import com.graphhopper.util.shapes.GHPoint3D;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -27,7 +28,7 @@ import java.util.List;
 
 /**
  * Slim list to store several points (without the need for a point object).
- * <p/>
+ * <p>
  * @author Peter Karich
  */
 public class PointList implements Iterable<GHPoint3D>, PointAccess
@@ -303,14 +304,15 @@ public class PointList implements Iterable<GHPoint3D>, PointAccess
         {
             if (includeElevation)
                 points.add(new Double[]
-                {
-                    Helper.round6(getLongitude(i)), Helper.round6(getLatitude(i)), Helper.round2(getElevation(i))
-                });
+                        {
+                                Helper.round6(getLongitude(i)), Helper.round6(getLatitude(i)),
+                                Helper.round2(getElevation(i))
+                        });
             else
                 points.add(new Double[]
-                {
-                    Helper.round6(getLongitude(i)), Helper.round6(getLatitude(i))
-                });
+                        {
+                                Helper.round6(getLongitude(i)), Helper.round6(getLatitude(i))
+                        });
         }
         return points;
     }

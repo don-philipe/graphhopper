@@ -23,9 +23,9 @@ import com.graphhopper.storage.Storable;
 /**
  * Provides a way to map realword data "lat,lon" to internal ids/indices of a memory efficient graph
  * - often just implemented as an array.
- * <p/>
+ * <p>
  * The implementations of findID needs to be thread safe!
- * <p/>
+ * <p>
  * @author Peter Karich
  */
 public interface LocationIndex extends Storable<LocationIndex>

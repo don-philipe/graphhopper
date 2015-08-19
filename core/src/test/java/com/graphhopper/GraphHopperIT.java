@@ -19,15 +19,17 @@ package com.graphhopper;
 
 import com.graphhopper.reader.dem.SRTMProvider;
 import com.graphhopper.routing.AlgorithmOptions;
+import com.graphhopper.routing.RoutingAlgorithmFactory;
 import com.graphhopper.routing.RoutingAlgorithmFactorySimple;
-import com.graphhopper.routing.util.*;
+import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.util.*;
 import com.graphhopper.util.shapes.GHPoint;
+import org.junit.*;
 
 import java.io.File;
 import java.util.List;
 import java.util.Map;
-import org.junit.*;
+
 import static org.junit.Assert.*;
 
 /**
@@ -84,7 +86,7 @@ public class GraphHopperIT
                 setAlgorithm(AlgorithmOptions.ASTAR).setVehicle(vehicle).setWeighting(weightCalcStr));
 
         // identify the number of counts to compare with CH foot route
-        assertEquals(698, hopper.getVisitedSum());
+        assertEquals(698, rsp.getHints().getLong("visited_nodes.sum", 0));
         assertEquals(3437.6, rsp.getDistance(), .1);
         assertEquals(89, rsp.getPoints().getSize());
 
@@ -115,8 +117,8 @@ public class GraphHopperIT
 
         List<GPXEntry> list = rsp.getInstructions().createGPXList();
         assertEquals(89, list.size());
-        final long lastEntryMillis = list.get(list.size() - 1).getMillis();
-        final long totalResponseMillis = rsp.getMillis();
+        final long lastEntryMillis = list.get(list.size() - 1).getTime();
+        final long totalResponseMillis = rsp.getTime();
         assertEquals(totalResponseMillis, lastEntryMillis);
     }
 
@@ -190,6 +192,35 @@ public class GraphHopperIT
     }
 
     @Test
+    public void testMonacoEnforcedDirection()
+    {
+        GHRequest req = new GHRequest().
+                addPoint(new GHPoint(43.741069, 7.426854), 0.).
+                addPoint(new GHPoint(43.744445, 7.429483), 190.).
+                setVehicle(vehicle).setWeighting("fastest");
+        req.getHints().put("heading_penalty", "300");
+        GHResponse rsp = hopper.route(req);
+
+        assertEquals(874., rsp.getDistance(), 10.);
+        assertEquals(33, rsp.getPoints().getSize());
+    }
+
+    @Test
+    public void testMonacoStraightVia()
+    {
+        GHRequest rq = new GHRequest().
+                addPoint(new GHPoint(43.741069, 7.426854)).
+                addPoint(new GHPoint(43.740371, 7.426946)).
+                addPoint(new GHPoint(43.740794, 7.427294)).
+                setVehicle(vehicle).setWeighting("fastest");
+        rq.getHints().put("pass_through", true);
+        GHResponse rsp = hopper.route(rq);
+
+        assertEquals(297, rsp.getDistance(), 5.);
+        assertEquals(27, rsp.getPoints().getSize());
+    }
+
+    @Test
     public void testSRTMWithInstructions() throws Exception
     {
         GraphHopper tmpHopper = new GraphHopper().
@@ -230,7 +261,7 @@ public class GraphHopperIT
 
         List<GPXEntry> list = rsp.getInstructions().createGPXList();
         assertEquals(60, list.size());
-        final long lastEntryMillis = list.get(list.size() - 1).getMillis();
+        final long lastEntryMillis = list.get(list.size() - 1).getTime();
         assertEquals(new GPXEntry(43.73068455771767, 7.421283689825812, 62.0, 0), list.get(0));
         assertEquals(new GPXEntry(43.727680946587874, 7.4191987684222065, 11.0, lastEntryMillis), list.get(list.size() - 1));
 
@@ -300,7 +331,12 @@ public class GraphHopperIT
                 importOrLoad();
 
         assertEquals(tmpVehicle, tmpHopper.getDefaultVehicle().toString());
-        assertFalse(RoutingAlgorithmFactorySimple.class.isAssignableFrom(tmpHopper.getAlgorithmFactory().getClass()));
+
+        assertEquals(2, tmpHopper.getAlgorithmFactories().size());
+        for (RoutingAlgorithmFactory raf : tmpHopper.getAlgorithmFactories())
+        {
+            assertFalse(RoutingAlgorithmFactorySimple.class.isAssignableFrom(raf.getClass()));
+        }
 
         GHResponse rsp = tmpHopper.route(new GHRequest(43.745084, 7.430513, 43.745247, 7.430347)
                 .setVehicle(tmpVehicle).setWeighting(tmpWeightCalcStr));
@@ -320,32 +356,58 @@ public class GraphHopperIT
     }
 
     @Test
-    public void testMultipleVehiclesAndDoCHForBike()
+    public void testMultipleVehiclesWithCH()
     {
         String tmpOsmFile = "files/monaco.osm.gz";
-        String tmpImportVehicles = "bike,car";
-
         GraphHopper tmpHopper = new GraphHopper().
                 setStoreOnFlush(true).
                 setOSMFile(tmpOsmFile).
                 setGraphHopperLocation(tmpGraphFile).
-                setEncodingManager(new EncodingManager(tmpImportVehicles)).
+                setEncodingManager(new EncodingManager("bike,car")).
                 importOrLoad();
         assertEquals("bike", tmpHopper.getDefaultVehicle().toString());
+        checkMultiVehiclesWithCH(tmpHopper);
+        tmpHopper.close();
 
+        tmpHopper.clean();
+        // new instance, try different order, resulting only in different default vehicle
+        tmpHopper = new GraphHopper().
+                setStoreOnFlush(true).
+                setOSMFile(tmpOsmFile).
+                setGraphHopperLocation(tmpGraphFile).
+                setEncodingManager(new EncodingManager("car,bike")).
+                importOrLoad();
+        assertEquals("car", tmpHopper.getDefaultVehicle().toString());
+        checkMultiVehiclesWithCH(tmpHopper);
+        tmpHopper.close();
+    }
+
+    private void checkMultiVehiclesWithCH( GraphHopper tmpHopper )
+    {
+        String str = tmpHopper.getEncodingManager().toString();
         GHResponse rsp = tmpHopper.route(new GHRequest(43.73005, 7.415707, 43.741522, 7.42826)
                 .setVehicle("car"));
-        assertEquals(207, rsp.getMillis() / 1000f, 1);
+        assertFalse("car routing for " + str + " should not have errors:" + rsp.getErrors(), rsp.hasErrors());
+        assertEquals(207, rsp.getTime() / 1000f, 1);
         assertEquals(2838, rsp.getDistance(), 1);
 
         rsp = tmpHopper.route(new GHRequest(43.73005, 7.415707, 43.741522, 7.42826)
                 .setVehicle("bike"));
-        assertEquals(494, rsp.getMillis() / 1000f, 1);
+        assertFalse("bike routing for " + str + " should not have errors:" + rsp.getErrors(), rsp.hasErrors());
+        assertEquals(494, rsp.getTime() / 1000f, 1);
         assertEquals(2192, rsp.getDistance(), 1);
 
         rsp = tmpHopper.route(new GHRequest(43.73005, 7.415707, 43.741522, 7.42826)
                 .setVehicle("foot"));
         assertTrue("only bike and car were imported. foot request should fail", rsp.hasErrors());
+
+        GHRequest req = new GHRequest().
+                addPoint(new GHPoint(43.741069, 7.426854), 0.).
+                addPoint(new GHPoint(43.744445, 7.429483), 190.).
+                setVehicle("bike").setWeighting("fastest");
+
+        rsp = hopper.route(req);
+        assertTrue("heading not allowed for CH enabled graph", rsp.hasErrors());
     }
 
     @Test
@@ -376,7 +438,9 @@ public class GraphHopperIT
                 setVehicle(vehicle));
 
         // identify the number of counts to compare with none-CH foot route which had nearly 700 counts
-        assertTrue("Too many nodes visited " + tmpHopper.getVisitedSum(), tmpHopper.getVisitedSum() < 120);
+        long sum = rsp.getHints().getLong("visited_nodes.sum", 0);
+        assertNotEquals(sum, 0);
+        assertTrue("Too many nodes visited " + sum, sum < 120);
         assertEquals(3437.6, rsp.getDistance(), .1);
         assertEquals(89, rsp.getPoints().getSize());
         tmpHopper.close();

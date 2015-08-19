@@ -15,16 +15,29 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package com.graphhopper.util;
+package com.graphhopper.http;
 
-import com.graphhopper.storage.LevelGraph;
+import com.graphhopper.GHResponse;
+import com.graphhopper.util.PointList;
+import java.util.Map;
 
 /**
- * Support for skipped edge
- * <p/>
- * @see LevelGraph
+ * This interface speficies how the route should be transformed into JSON.
+ * <p>
  * @author Peter Karich
  */
-public interface EdgeSkipIterator extends EdgeIterator, EdgeSkipIterState
+public interface RouteSerializer
 {
+    /**
+     * This method transforms the specified response into a JSON.
+     */
+    Map<String, Object> toJSON( GHResponse response,
+                                boolean calcPoints, boolean pointsEncoded,
+                                boolean includeElevation, boolean enableInstructions );
+
+    /**
+     * This method returns either a Map containing the GeoJSON of the specified points OR the string
+     * encoded polyline of it.
+     */
+    Object createPoints( PointList points, boolean pointsEncoded, boolean includeElevation );
 }

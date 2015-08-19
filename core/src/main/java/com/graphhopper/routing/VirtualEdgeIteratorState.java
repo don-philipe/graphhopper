@@ -15,14 +15,17 @@
  */
 package com.graphhopper.routing;
 
-import com.graphhopper.util.EdgeIteratorState;
-import com.graphhopper.util.EdgeSkipIterState;
-import com.graphhopper.util.PointList;
+import com.graphhopper.routing.util.FlagEncoder;
+import com.graphhopper.util.*;
 
 /**
  * Creates an edge state decoupled from a graph where nodes, pointList, etc are kept in memory.
+ * <p>
+ * Note, this class is not suited for public use and can change with minor releases unexpectedly or
+ * even gets removed.
  */
-class VirtualEdgeIState implements EdgeIteratorState, EdgeSkipIterState {
+public class VirtualEdgeIteratorState implements EdgeIteratorState, CHEdgeIteratorState
+{
     private final PointList pointList;
     private final int edgeId;
     private double distance;
@@ -30,9 +33,13 @@ class VirtualEdgeIState implements EdgeIteratorState, EdgeSkipIterState {
     private String name;
     private final int baseNode;
     private final int adjNode;
+    private final int originalTraversalKey;
+    // indication if edges are dispreferred as start/stop edge 
+    private boolean unfavored;
 
-    public VirtualEdgeIState( int edgeId, int baseNode, int adjNode, double distance, long flags, String name, PointList pointList )
+    public VirtualEdgeIteratorState( int originalTraversalKey, int edgeId, int baseNode, int adjNode, double distance, long flags, String name, PointList pointList )
     {
+        this.originalTraversalKey = originalTraversalKey;
         this.edgeId = edgeId;
         this.baseNode = baseNode;
         this.adjNode = adjNode;
@@ -40,6 +47,17 @@ class VirtualEdgeIState implements EdgeIteratorState, EdgeSkipIterState {
         this.flags = flags;
         this.name = name;
         this.pointList = pointList;
+    }
+
+    /**
+     * This method returns the original edge via its traversal key. I.e. also the direction is
+     * already correctly encoded.
+     * <p>
+     * @see GHUtility#createEdgeKey(int, int, int, boolean)
+     */
+    public int getOriginalTraversalKey()
+    {
+        return originalTraversalKey;
     }
 
     @Override
@@ -127,6 +145,24 @@ class VirtualEdgeIState implements EdgeIteratorState, EdgeSkipIterState {
     }
 
     @Override
+    public boolean getBoolean( int key, boolean reverse, boolean _default )
+    {
+        if (key == EdgeIteratorState.K_UNFAVORED_EDGE)
+            return unfavored;
+
+        // for non-existent keys return default
+        return _default;
+    }
+
+    /**
+     * This method sets edge to unfavored status for routing from or to the start/stop points.
+     */
+    public void setVirtualEdgePreference( boolean unfavored )
+    {
+        this.unfavored = unfavored;
+    }
+
+    @Override
     public String toString()
     {
         return baseNode + "->" + adjNode;
@@ -139,7 +175,25 @@ class VirtualEdgeIState implements EdgeIteratorState, EdgeSkipIterState {
     }
 
     @Override
+    public boolean isForward( FlagEncoder encoder )
+    {
+        return encoder.isForward(getFlags());
+    }
+
+    @Override
+    public boolean isBackward( FlagEncoder encoder )
+    {
+        return encoder.isBackward(getFlags());
+    }
+
+    @Override
     public int getAdditionalField()
+    {
+        throw new UnsupportedOperationException("Not supported.");
+    }
+
+    @Override
+    public boolean canBeOverwritten( long flags )
     {
         throw new UnsupportedOperationException("Not supported.");
     }
@@ -181,7 +235,7 @@ class VirtualEdgeIState implements EdgeIteratorState, EdgeSkipIterState {
     }
 
     @Override
-    public EdgeSkipIterState setWeight( double weight )
+    public CHEdgeIteratorState setWeight( double weight )
     {
         throw new UnsupportedOperationException("Not supported.");
     }
@@ -191,5 +245,5 @@ class VirtualEdgeIState implements EdgeIteratorState, EdgeSkipIterState {
     {
         throw new UnsupportedOperationException("Not supported.");
     }
-    
+
 }

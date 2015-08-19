@@ -160,7 +160,7 @@ public class Instruction
      * @return the time offset to add for the next instruction
      */
     long fillGPXList( List<GPXEntry> list, long time,
-            Instruction prevInstr, Instruction nextInstr, boolean firstInstr )
+                      Instruction prevInstr, Instruction nextInstr, boolean firstInstr )
     {
         checkOne();
         int len = points.size();

@@ -20,13 +20,16 @@ package com.graphhopper.http;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
 import com.graphhopper.util.Downloader;
+
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
+
 import org.junit.Test;
+
 import static org.junit.Assert.*;
 
 /**
- *
  * @author Peter Karich
  */
 public class GraphHopperWebTest
@@ -39,7 +42,7 @@ public class GraphHopperWebTest
         Downloader downloader = new Downloader("GraphHopper Test")
         {
             @Override
-            public InputStream fetch( String url ) throws IOException
+            public InputStream fetch( HttpURLConnection conn, boolean readErrorStreamNoException ) throws IOException
             {
                 return getClass().getResourceAsStream("test_encoded.json");
             }

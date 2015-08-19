@@ -15,13 +15,14 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package com.graphhopper.routing.util;
-
-import com.graphhopper.util.EdgeSkipIterator;
+package com.graphhopper.storage;
 
 /**
  * @author Peter Karich
  */
-public interface AllEdgesSkipIterator extends AllEdgesIterator, EdgeSkipIterator
+public interface InternalGraphEventListener
 {
+    void freeze();
+
+    void initStorage();
 }

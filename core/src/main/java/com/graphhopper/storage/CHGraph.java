@@ -17,18 +17,19 @@
  */
 package com.graphhopper.storage;
 
-import com.graphhopper.routing.util.AllEdgesSkipIterator;
+import com.graphhopper.routing.util.AllCHEdgesIterator;
 import com.graphhopper.routing.util.EdgeFilter;
-import com.graphhopper.util.EdgeSkipExplorer;
-import com.graphhopper.util.EdgeSkipIterState;
+import com.graphhopper.util.CHEdgeExplorer;
+import com.graphhopper.util.CHEdgeIteratorState;
 
 /**
- * Extended graph interface which supports storing and retrieving the level for a node and creating
- * shortcuts, which are additional 'artificial' edges to speedup traversal in certain cases.
- * <p/>
+ * Extended graph interface which supports Contraction Hierarchies. Ie. storing and retrieving the
+ * levels for a node and creating shortcuts, which are additional 'artificial' edges to speedup
+ * traversal in certain cases.
+ * <p>
  * @author Peter Karich
  */
-public interface LevelGraph extends Graph
+public interface CHGraph extends Graph
 {
     /**
      * This methods sets the level of the specified node.
@@ -46,17 +47,17 @@ public interface LevelGraph extends Graph
      * This method creates a shortcut between a to b which is nearly identical to creating an edge
      * except that it can be excluded or included for certain traversals or algorithms.
      */
-    EdgeSkipIterState shortcut( int a, int b );
+    CHEdgeIteratorState shortcut( int a, int b );
 
     @Override
-    EdgeSkipIterState getEdgeProps( int edgeId, int endNode );
+    CHEdgeIteratorState getEdgeIteratorState( int edgeId, int endNode );
 
     @Override
-    EdgeSkipExplorer createEdgeExplorer();
+    CHEdgeExplorer createEdgeExplorer();
 
     @Override
-    EdgeSkipExplorer createEdgeExplorer( EdgeFilter filter );
+    CHEdgeExplorer createEdgeExplorer( EdgeFilter filter );
 
     @Override
-    AllEdgesSkipIterator getAllEdges();
+    AllCHEdgesIterator getAllEdges();
 }
