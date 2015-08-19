@@ -111,9 +111,6 @@ public class WheelchairFlagEncoderTest
         way.setTag("highway", "path");
         assertFalse(wheelchairEncoder.acceptWay(way) > 0);
 
-        way.setTag("bicycle", "official");
-        assertFalse(wheelchairEncoder.acceptWay(way) > 0);
-
         way.setTag("wheelchair", "official");
         assertTrue(wheelchairEncoder.acceptWay(way) > 0);
 
