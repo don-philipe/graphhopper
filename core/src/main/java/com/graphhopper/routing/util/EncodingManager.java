@@ -172,10 +172,9 @@ public class EncodingManager
 
             else if (entry.equals(MOTORCYCLE))
                 fe = new MotorcycleFlagEncoder(configuration);
-                fe = new MotorcycleFlagEncoder(entryVal);
             
             else if (entry.equals(WHEELCHAIR))
-                fe = new WheelchairFlagEncoder(entryVal);
+                fe = new WheelchairFlagEncoder(configuration);
 
             else
                 throw new IllegalArgumentException("entry in encoder list not supported " + entry);
