@@ -29,7 +29,8 @@ import static com.graphhopper.routing.util.PriorityCode.*;
 import java.util.*;
 
 /**
- * Mainly copied from FootFlagEncoder.
+ * Mainly copied from FootFlagEncoder as wheelchair users are legally equivalent to pedestrians, at
+ * least in germany.
  * 
  * Problems:
  *      - wheelchairs should not be routed over streets between towns
@@ -356,7 +357,7 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
     void collect( OSMWay way, TreeMap<Double, Integer> weightToPrioMap )
     {
         String highway = way.getTag("highway");
-        if (way.hasTag("foot", "designated"))
+        if (way.hasTag("wheelchair", "designated") || way.hasTag("foot", "designated"))
             weightToPrioMap.put(100d, PREFER.getValue());
 
         double maxSpeed = getMaxSpeed(way);
