@@ -94,17 +94,17 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
 
         setBlockByDefault(false);
         potentialBarriers.add("gate");
-        //potentialBarriers.add( "lift_gate" );
+        potentialBarriers.add("lift_gate");
         potentialBarriers.add("swing_gate");
 
         acceptedRailways.add("station");
         acceptedRailways.add("platform");
         
         safeHighwayTags.add("footway");
-//      safeHighwayTags.add("path");
+//        safeHighwayTags.add("path");
         safeHighwayTags.add("pedestrian");
         safeHighwayTags.add("living_street");
-//      safeHighwayTags.add("track");
+//        safeHighwayTags.add("track");
         safeHighwayTags.add("residential");
         safeHighwayTags.add("service");
         
@@ -211,7 +211,6 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
     @Override
     public long acceptWay( OSMWay way )
     {
-        // TODO: steps may have ramps
         if(way.hasTag("highway", "steps"))
         {
             if(way.hasTag("ramp:wheelchair", intendedValues))
@@ -222,6 +221,12 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         
         // allow wheelchairs on cycleways which can also be used by pedestrians
         if(way.hasTag("highway", "cycleway") && way.hasTag("foot", intendedValues))
+            return acceptBit;
+        
+        if(way.hasTag("highway", "track") && (way.hasTag("tracktype", "grade1") || way.hasTag("tracktype", "grade2")))
+            return acceptBit;
+        
+        if(way.hasTag("smoothness", "excellent") || way.hasTag("smoothness", "good") || way.hasTag("smoothness", "intermediate"))
             return acceptBit;
         
         String highwayValue = way.getTag("highway");
@@ -251,8 +256,8 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         
         // sometimes footways are tagged as paths
         // but hikingtrails are also often tagged as paths, so some more tagevaluation is required here
-        if(way.hasTag("highway", "path") && way.hasTag("bicycle", intendedValues))
-            return acceptBit;
+//        if(way.hasTag("highway", "path") && way.hasTag("bicycle", intendedValues))
+//            return acceptBit;
 
         if (!allowedHighwayTags.contains(highwayValue))
             return 0;

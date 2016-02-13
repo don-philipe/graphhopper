@@ -90,27 +90,28 @@ public class WheelchairFlagEncoderTest
         OSMWay way = new OSMWay(1);
 
         way.setTag("highway", "motorway");
+        assertFalse(wheelchairEncoder.acceptWay(way) > 0);
         way.setTag("sidewalk", "yes");
         assertTrue(wheelchairEncoder.acceptWay(way) > 0);
         way.setTag("sidewalk", "left");
         assertTrue(wheelchairEncoder.acceptWay(way) > 0);
 
+        way.clearTags();
+        way.setTag("highway", "motorway");
         way.setTag("sidewalk", "none");
         assertFalse(wheelchairEncoder.acceptWay(way) > 0);
-        way.clearTags();
 
+        way.clearTags();
         way.setTag("highway", "pedestrian");
         assertTrue(wheelchairEncoder.acceptWay(way) > 0);
 
+        way.clearTags();
         way.setTag("highway", "footway");
         assertTrue(wheelchairEncoder.acceptWay(way) > 0);
 
-        way.setTag("highway", "motorway");
-        assertFalse(wheelchairEncoder.acceptWay(way) > 0);
-
+        way.clearTags();
         way.setTag("highway", "path");
         assertFalse(wheelchairEncoder.acceptWay(way) > 0);
-
         way.setTag("wheelchair", "official");
         assertTrue(wheelchairEncoder.acceptWay(way) > 0);
 
@@ -129,6 +130,15 @@ public class WheelchairFlagEncoderTest
         assertFalse(wheelchairEncoder.acceptWay(way) > 0);
         way.setTag("foot", "yes");
         assertTrue(wheelchairEncoder.acceptWay(way) > 0);
+        
+        way.clearTags();
+        way.setTag("highway", "track");
+        assertFalse(wheelchairEncoder.acceptWay(way) > 0);
+        way.setTag("tracktype", "grade4");
+        assertFalse(wheelchairEncoder.acceptWay(way) > 0);
+        way.removeTag("tracktype");
+        way.setTag("tracktype", "grade2");
+        assertTrue(wheelchairEncoder.acceptWay(way) > 0);
 
 //        way.clearTags();
 //        way.setTag("highway", "track");
@@ -142,6 +152,11 @@ public class WheelchairFlagEncoderTest
         assertTrue(wheelchairEncoder.acceptWay(way) > 0);
         way.setTag("foot", "no");
         assertFalse(wheelchairEncoder.acceptWay(way) > 0);
+        
+        way.clearTags();
+        way.setTag("highway", "residential");
+        way.setTag("incline", "down");
+        assertTrue(wheelchairEncoder.acceptWay(way) > 0);
     }
 
     @Test
