@@ -48,6 +48,8 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
     private final Set<String> safeHighwayTags = new HashSet<String>();
     private final Set<String> allowedHighwayTags = new HashSet<String>();
     private final Set<String> avoidHighwayTags = new HashSet<String>();
+    private final Set<String> avoidSmoothnessTags = new HashSet<String>();
+    private final Set<String> avoidSurfaceTags = new HashSet<String>();
 
     /**
      * Should be only instantied via EncodingManager
@@ -111,8 +113,8 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         avoidHighwayTags.add("trunk_link");
         avoidHighwayTags.add("primary");
         avoidHighwayTags.add("primary_link");
-        avoidHighwayTags.add("tertiary");
-        avoidHighwayTags.add("tertiary_link");
+//        avoidHighwayTags.add("tertiary");
+//        avoidHighwayTags.add("tertiary_link");
         // for now no explicit avoiding #257
         //avoidHighwayTags.add("cycleway"); 
 
@@ -127,6 +129,18 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         allowedHighwayTags.add("tertiary_link");
         allowedHighwayTags.add("unclassified");
         allowedHighwayTags.add("road");
+        
+        avoidSmoothnessTags.add("bad");
+        avoidSmoothnessTags.add("very_bad");
+        avoidSmoothnessTags.add("horrible");
+        avoidSmoothnessTags.add("very_horrible");
+        avoidSmoothnessTags.add("impassable");
+        
+        // TODO add more:
+        avoidSurfaceTags.add("mud");
+        avoidSurfaceTags.add("sand");
+        avoidSurfaceTags.add("gravel");
+        avoidSurfaceTags.add("cobbelstone");
         
         //TODO validate
         maxPossibleSpeed = FERRY_SPEED;
@@ -203,83 +217,60 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
 
     /**
      * Some ways are okay but not separate for wheelchairs.
-     * <p/>
      * @param way
      * @return 
      */
     @Override
     public long acceptWay( OSMWay way )
     {
-        if(way.hasTag("highway", "steps"))
-        {
-            if(way.hasTag("ramp:wheelchair", intendedValues))
-                return acceptBit;
-            else
-                return 0;
-        }
-        
-        // allow wheelchairs on cycleways which can also be used by pedestrians
-        if(way.hasTag("highway", "cycleway") && way.hasTag("foot", intendedValues))
-            return acceptBit;
-        
-        if(way.hasTag("highway", "track") && (way.hasTag("tracktype", "grade1") || way.hasTag("tracktype", "grade2")))
-            return acceptBit;
-        
-        if(way.hasTag("smoothness", "excellent") || way.hasTag("smoothness", "good") || way.hasTag("smoothness", "intermediate"))
-            return acceptBit;
-        
         String highwayValue = way.getTag("highway");
-        if (highwayValue == null)
-        {
-            if (way.hasTag("route", ferries))
-            {
-                String wheelchairTag = way.getTag("wheelchair");
-                String footTag = way.getTag("foot");
-                if(!"no".equals(footTag) && wheelchairTag == null || "yes".equals(wheelchairTag))
-                    return acceptBit | ferryBit;
-            }
-
-            // special case not for all acceptedRailways, only platform
-            if (way.hasTag("railway", "platform"))
-                return acceptBit;
-
+        
+        if (way.hasTag(restrictions, restrictedValues) || avoidHighwayTags.contains(highwayValue) ||
+                way.hasTag("motorroad", "yes") || 
+                // do not accept railways (sometimes incorrectly mapped!)
+                way.hasTag("railway") && !way.hasTag("railway", acceptedRailways))
             return 0;
-        }
-
-        if (way.hasTag("sidewalk", sidewalks))
-            return acceptBit;
-
-        // no need to evaluate ferries or fords - already included here
+        
         if (way.hasTag("wheelchair", intendedValues))
             return acceptBit;
         
-        // sometimes footways are tagged as paths
-        // but hikingtrails are also often tagged as paths, so some more tagevaluation is required here
-//        if(way.hasTag("highway", "path") && way.hasTag("bicycle", intendedValues))
-//            return acceptBit;
+        if (!way.hasTag("smoothness", avoidSmoothnessTags) && !way.hasTag("surface", avoidSurfaceTags))
+        {
+            if (way.hasTag("sidewalk", sidewalks))
+                return acceptBit;
 
-        if (!allowedHighwayTags.contains(highwayValue))
-            return 0;
+            if (highwayValue != null)
+            {
+                if (allowedHighwayTags.contains(highwayValue))
+                    return acceptBit;
+            }
+            else
+            {
+                if (way.hasTag("route", ferries))
+                {
+                    String wheelchairTag = way.getTag("wheelchair");
+                    String footTag = way.getTag("foot");
+                    if(!"no".equals(footTag) && wheelchairTag == null || "yes".equals(wheelchairTag))
+                        return acceptBit | ferryBit;
+                }
 
-        if (way.hasTag("motorroad", "yes"))
-            return 0;
+                // special case not for all acceptedRailways, only platform
+                if (way.hasTag("railway", "platform"))
+                    return acceptBit;
+            }
 
-        // do not get our wheels wet
-        if (isBlockFords() && (way.hasTag("highway", "ford") || way.hasTag("ford")))
-            return 0;
+            // special highways:
+            if (way.hasTag("highway", "steps") && way.hasTag("ramp:wheelchair", intendedValues))
+                return acceptBit;
 
-//        if (way.hasTag("bicycle", "official"))
-//            return 0;
+            if (way.hasTag("highway", "track") && (way.hasTag("tracktype", "grade1") || way.hasTag("tracktype", "grade2")))
+                return acceptBit;
 
-        // check access restrictions
-        if (way.hasTag(restrictions, restrictedValues))
-            return 0;
-
-        // do not accept railways (sometimes incorrectly mapped!)
-        if (way.hasTag("railway") && !way.hasTag("railway", acceptedRailways))
-            return 0;
-
-        return acceptBit;
+            if (way.hasTag("highway", "cycleway") && way.hasTag("foot", intendedValues))
+                return acceptBit;
+        }
+        
+        return 0;
     }
 
     @Override
@@ -361,7 +352,7 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
     void collect( OSMWay way, TreeMap<Double, Integer> weightToPrioMap )
     {
         String highway = way.getTag("highway");
-        if (way.hasTag("foot", "designated"))
+        if (way.hasTag("foot", "designated") || way.hasTag("wheelchair", intendedValues))
             weightToPrioMap.put(100d, PREFER.getValue());
 
         double maxSpeed = getMaxSpeed(way);
@@ -374,7 +365,7 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
                     weightToPrioMap.put(40d, REACH_DEST.getValue());
                 else
                 weightToPrioMap.put(40d, UNCHANGED.getValue());
-        }
+            }
         } else if (maxSpeed > 50 || avoidHighwayTags.contains(highway))
         {
             if (way.hasTag("sidewalk", "no"))
@@ -385,6 +376,23 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
 
         if (way.hasTag("bicycle", "official") || way.hasTag("bicycle", "designated"))
             weightToPrioMap.put(44d, AVOID_IF_POSSIBLE.getValue());
+        
+        // weighting based on surface ...
+        if (way.hasTag("highway", "track") && (way.hasTag("tracktype", "grade1")))
+            weightToPrioMap.put(90d, PREFER.getValue());
+        else if (way.hasTag("highway", "track") && (way.hasTag("tracktype", "grade2")))
+            weightToPrioMap.put(90d, UNCHANGED.getValue());
+        // ... and smoothness
+        if (way.hasTag("smoothness", "excellent"))
+            weightToPrioMap.put(110d, BEST.getValue());
+        else if (way.hasTag("smoothness", "good"))
+            weightToPrioMap.put(110d, VERY_NICE.getValue());
+        else if (way.hasTag("smoothness", "intermediate"))
+            weightToPrioMap.put(110d, PREFER.getValue());
+//        else if (way.hasTag("smoothness", "bad") || way.hasTag("smoothness", "very_bad") 
+//                || way.hasTag("smoothness", "horrible") || way.hasTag("smoothness", "very_horrible")
+//                || way.hasTag("smoothness", "impassable"))
+//            weightToPrioMap.put(110d, WORST.getValue());
         }
 
     @Override

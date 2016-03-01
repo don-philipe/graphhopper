@@ -108,6 +108,8 @@ public class WheelchairFlagEncoderTest
         way.clearTags();
         way.setTag("highway", "footway");
         assertTrue(wheelchairEncoder.acceptWay(way) > 0);
+        way.setTag("smoothness", "bad");
+        assertFalse(wheelchairEncoder.acceptWay(way) > 0);
 
         way.clearTags();
         way.setTag("highway", "path");
@@ -139,13 +141,15 @@ public class WheelchairFlagEncoderTest
         way.removeTag("tracktype");
         way.setTag("tracktype", "grade2");
         assertTrue(wheelchairEncoder.acceptWay(way) > 0);
+        way.removeTag("tracktype");
+        assertFalse(wheelchairEncoder.acceptWay(way) > 0);
 
-//        way.clearTags();
-//        way.setTag("highway", "track");
-//        way.setTag("ford", "yes");
-//        assertFalse(wheelchairEncoder.acceptWay(way) > 0);
-//        way.setTag("foot", "yes");
-//        assertTrue(wheelchairEncoder.acceptWay(way) > 0);
+        way.clearTags();
+        way.setTag("highway", "track");
+        way.setTag("ford", "yes");
+        assertFalse(wheelchairEncoder.acceptWay(way) > 0);
+        way.setTag("wheelchair", "yes");
+        assertTrue(wheelchairEncoder.acceptWay(way) > 0);
 
         way.clearTags();
         way.setTag("route", "ferry");
@@ -198,5 +202,14 @@ public class WheelchairFlagEncoderTest
 
         assertFalse(wheelchairEncoder.isTurnRestricted(flags_r20));
         assertFalse(wheelchairEncoder.isTurnRestricted(flags_20));
+    }
+    
+    @Test
+    public void testPriority()
+    {
+        OSMWay way = new OSMWay(1);
+        way.clearTags();
+        way.setTag("smoothness", "good");
+        assertEquals(PriorityCode.VERY_NICE.getValue(), wheelchairEncoder.handlePriority(way, 0));
     }
 }
