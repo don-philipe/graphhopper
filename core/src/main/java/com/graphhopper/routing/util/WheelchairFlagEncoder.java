@@ -29,7 +29,8 @@ import static com.graphhopper.routing.util.PriorityCode.*;
 import java.util.*;
 
 /**
- * Mainly copied from FootFlagEncoder.
+ * Mainly copied from FootFlagEncoder as wheelchair users are legally equivalent to pedestrians, at
+ * least in germany.
  * 
  * Problems:
  *      - wheelchairs should not be routed over streets between towns
