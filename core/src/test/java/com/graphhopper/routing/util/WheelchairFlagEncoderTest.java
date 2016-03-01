@@ -91,10 +91,10 @@ public class WheelchairFlagEncoderTest
 
         way.setTag("highway", "motorway");
         assertFalse(wheelchairEncoder.acceptWay(way) > 0);
-        way.setTag("sidewalk", "yes");
-        assertTrue(wheelchairEncoder.acceptWay(way) > 0);
         way.setTag("sidewalk", "left");
         assertTrue(wheelchairEncoder.acceptWay(way) > 0);
+        way.setTag("sidewalk:left:smoothness", "bad");
+        assertFalse(wheelchairEncoder.acceptWay(way) > 0);
 
         way.clearTags();
         way.setTag("highway", "motorway");
@@ -112,8 +112,6 @@ public class WheelchairFlagEncoderTest
         assertFalse(wheelchairEncoder.acceptWay(way) > 0);
 
         way.clearTags();
-        way.setTag("highway", "path");
-        assertFalse(wheelchairEncoder.acceptWay(way) > 0);
         way.setTag("wheelchair", "official");
         assertTrue(wheelchairEncoder.acceptWay(way) > 0);
 

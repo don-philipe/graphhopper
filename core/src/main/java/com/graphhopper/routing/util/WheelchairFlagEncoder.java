@@ -103,7 +103,6 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         acceptedRailways.add("platform");
         
         safeHighwayTags.add("footway");
-//        safeHighwayTags.add("path");
         safeHighwayTags.add("pedestrian");
         safeHighwayTags.add("living_street");
 //        safeHighwayTags.add("track");
@@ -120,16 +119,14 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         //avoidHighwayTags.add("cycleway"); 
 
         allowedHighwayTags.addAll(safeHighwayTags);
-//      allowedHighwayTags.add("trunk");
-//      allowedHighwayTags.add("trunk_link");
-//      allowedHighwayTags.add("primary");
-//      allowedHighwayTags.add("primary_link");
         allowedHighwayTags.add("secondary");
         allowedHighwayTags.add("secondary_link");
         allowedHighwayTags.add("tertiary");
         allowedHighwayTags.add("tertiary_link");
         allowedHighwayTags.add("unclassified");
         allowedHighwayTags.add("road");
+        // too generic use of path, need to include it here
+        allowedHighwayTags.add("path");
         
         avoidSmoothnessTags.add("bad");
         avoidSmoothnessTags.add("very_bad");
@@ -235,11 +232,23 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         if (way.hasTag("wheelchair", intendedValues))
             return acceptBit;
         
+        if (way.hasTag("sidewalk", sidewalks))
+        {
+            String left_smoothness = way.getTag("sidewalk:left:smoothness");
+            String right_smoothness = way.getTag("sidewalk:right:smoothness");
+            String both_smoothness = way.getTag("sidewalk:both:smoothness");
+            String left_surface = way.getTag("sidewalk:left:surface");
+            String right_surface = way.getTag("sidewalk:right:surface");
+            String both_surface = way.getTag("sidewalk:both:surface");
+            if (!avoidSmoothnessTags.contains(left_smoothness) && !avoidSmoothnessTags.contains(right_smoothness)
+                    && !avoidSmoothnessTags.contains(both_smoothness)
+                    && !avoidSurfaceTags.contains(left_surface) && !avoidSurfaceTags.contains(right_surface)
+                    && !avoidSurfaceTags.contains(both_surface))
+                return acceptBit;
+        }
+        
         if (!way.hasTag("smoothness", avoidSmoothnessTags) && !way.hasTag("surface", avoidSurfaceTags))
         {
-            if (way.hasTag("sidewalk", sidewalks))
-                return acceptBit;
-
             if (highwayValue != null)
             {
                 if (allowedHighwayTags.contains(highwayValue))
