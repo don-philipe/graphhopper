@@ -78,16 +78,27 @@ public class InstructionList implements Iterable<Instruction>
             Map<String, Object> instrJson = new HashMap<String, Object>();
             instrList.add(instrJson);
 
-            InstructionAnnotation ia = instruction.getAnnotation();
+            List<InstructionAnnotation> ias = instruction.getAnnotations();
             String str = instruction.getTurnDescription(tr);
+            
             if (Helper.isEmpty(str))
-                str = ia.getMessage();
-            instrJson.put("text", Helper.firstBig(str));
-            if (!ia.isEmpty())
-            {
-                instrJson.put("annotation_text", ia.getMessage());
-                instrJson.put("annotation_importance", ia.getImportance());
+                    instrJson.put("text", "");
+                else
+                    instrJson.put("text", Helper.firstBig(str));
+            
+            Map<String, Object> annotations = new HashMap<String, Object>();
+            Collections.sort(ias);      // sort by importance ascending
+            Collections.reverse(ias);   // reverses sorting, so the most important annotation comes first
+            for (InstructionAnnotation ia : ias)
+            {    
+                if (!ia.isEmpty())
+                {
+                    annotations.put(ia.getType(), ia.getMessage());
+//                    instrJson.put("annotation_text", ia.getMessage());
+//                    instrJson.put("annotation_importance", ia.getImportance());
+                }
             }
+            instrJson.put("annotations", annotations);
 
             instrJson.put("time", instruction.getTime());
             instrJson.put("distance", Helper.round(instruction.getDistance(), 3));

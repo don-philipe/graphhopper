@@ -20,12 +20,14 @@ package com.graphhopper.util;
 
 /**
  * @author Peter Karich
+ * @author Philipp Thöricht
  */
-public class InstructionAnnotation
+public class InstructionAnnotation implements Comparable<InstructionAnnotation>
 {
     public final static InstructionAnnotation EMPTY = new InstructionAnnotation();
     private boolean empty;
     private int importance;
+    private String type;
     private String message;
 
     private InstructionAnnotation()
@@ -33,15 +35,22 @@ public class InstructionAnnotation
         setEmpty();
     }
 
-    public InstructionAnnotation( int importance, String message )
+    /**
+     * 
+     * @param importance
+     * @param type the type of this annotation
+     * @param message 
+     */
+    public InstructionAnnotation( int importance, String type, String message )
     {
-        if (message.isEmpty() && importance == 0)
+        if (type.isEmpty() && message.isEmpty() && importance == 0)
         {
             setEmpty();
         } else
         {
             this.empty = false;
             this.importance = importance;
+            this.type = type;
             this.message = message;
         }
     }
@@ -50,6 +59,7 @@ public class InstructionAnnotation
     {
         this.empty = true;
         this.importance = 0;
+        this.type = "";
         this.message = "";
     }
 
@@ -61,6 +71,11 @@ public class InstructionAnnotation
     public int getImportance()
     {
         return importance;
+    }
+    
+    public String getType()
+    {
+        return type;
     }
 
     public String getMessage()
@@ -79,6 +94,7 @@ public class InstructionAnnotation
     {
         int hash = 3;
         hash = 83 * hash + this.importance;
+        hash = 83 * hash + (this.type != null ? this.type.hashCode() : 0);
         hash = 83 * hash + (this.message != null ? this.message.hashCode() : 0);
         return hash;
     }
@@ -93,8 +109,27 @@ public class InstructionAnnotation
         final InstructionAnnotation other = (InstructionAnnotation) obj;
         if (this.importance != other.importance)
             return false;
+        if ((this.type == null) ? (other.type != null) : !this.type.equals(other.type))
+            return false;
         if ((this.message == null) ? (other.message != null) : !this.message.equals(other.message))
             return false;
         return true;
+    }
+
+    /**
+     * Compare annotations by their importance.
+     * @param t
+     * @return 1 if this annotation is more important than the other, 0 if importance of both is 
+     * equal and -1 if this annotation is less important than the other.
+     */
+    @Override
+    public int compareTo( InstructionAnnotation t )
+    {
+        if (this.importance > t.importance)
+            return 1;
+        else if (this.importance == t.importance)
+            return 0;
+        else
+            return -1;
     }
 }

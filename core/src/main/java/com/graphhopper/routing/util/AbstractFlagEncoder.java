@@ -272,9 +272,11 @@ public abstract class AbstractFlagEncoder implements FlagEncoder, TurnCostEncode
     }
 
     @Override
-    public InstructionAnnotation getAnnotation( long flags, Translation tr )
+    public List<InstructionAnnotation> getAnnotations( long flags, Translation tr )
     {
-        return InstructionAnnotation.EMPTY;
+        List<InstructionAnnotation> ia = new ArrayList<InstructionAnnotation>();
+        ia.add(InstructionAnnotation.EMPTY);
+        return ia;
     }
 
     /**

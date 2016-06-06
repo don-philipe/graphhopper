@@ -17,6 +17,8 @@
  */
 package com.graphhopper.util;
 
+import java.util.ArrayList;
+
 /**
  * @author Peter Karich
  */
@@ -24,7 +26,7 @@ public class FinishInstruction extends Instruction
 {
     public FinishInstruction( final double lat, final double lon, final double ele )
     {
-        super(FINISH, "", InstructionAnnotation.EMPTY, new PointList(2, true)
+        super(FINISH, "", new ArrayList<InstructionAnnotation>(), new PointList(2, true)
         {
             {
                 add(lat, lon, ele);

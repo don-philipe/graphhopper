@@ -18,6 +18,7 @@
 package com.graphhopper.util;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -31,7 +32,7 @@ public class RoundaboutInstruction extends Instruction
     private boolean exited = false;
     private double radian = Double.NaN;
 
-    public RoundaboutInstruction( int sign, String name, InstructionAnnotation ia, PointList pl )
+    public RoundaboutInstruction( int sign, String name, List<InstructionAnnotation> ia, PointList pl )
     {
         super(sign, name, ia, pl);
     }

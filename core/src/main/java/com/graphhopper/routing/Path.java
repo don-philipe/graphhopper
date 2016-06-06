@@ -420,7 +420,7 @@ public class Path
             private Instruction prevInstruction;
             private boolean prevInRoundabout = false;
             private String name, prevName = null;
-            private InstructionAnnotation annotation, prevAnnotation;
+            private List<InstructionAnnotation> annotation, prevAnnotation;
             private EdgeExplorer outEdgeExplorer = graph.createEdgeExplorer(new DefaultEdgeFilter(encoder, false, true));
 
             @Override
@@ -450,7 +450,7 @@ public class Path
                 }
 
                 name = edge.getName();
-                annotation = encoder.getAnnotation(flags, tr);
+                annotation = encoder.getAnnotations(flags, tr);
 
                 if ((prevName == null) && (!isRoundabout)) // very first instruction (if not in Roundabout)
                 {

@@ -43,13 +43,13 @@ public class Instruction
     protected double distance;
     protected long time;
     protected final PointList points;
-    protected final InstructionAnnotation annotation;
+    protected final List<InstructionAnnotation> annotation;
 
     /**
      * The points, distances and times have exactly the same count. The last point of this
      * instruction is not duplicated here and should be in the next one.
      */
-    public Instruction( int sign, String name, InstructionAnnotation ia, PointList pl )
+    public Instruction( int sign, String name, List<InstructionAnnotation> ia, PointList pl )
     {
         this.sign = sign;
         this.name = name;
@@ -66,7 +66,7 @@ public class Instruction
         rawName = true;
     }
 
-    public InstructionAnnotation getAnnotation()
+    public List<InstructionAnnotation> getAnnotations()
     {
         return annotation;
     }

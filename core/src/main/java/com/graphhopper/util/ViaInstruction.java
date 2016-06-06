@@ -15,6 +15,8 @@
  */
 package com.graphhopper.util;
 
+import java.util.List;
+
 /**
  * @author Peter Karich
  */
@@ -22,14 +24,14 @@ public class ViaInstruction extends Instruction
 {
     private int viaPosition = -1;
 
-    public ViaInstruction( String name, InstructionAnnotation ia, PointList pl )
+    public ViaInstruction( String name, List<InstructionAnnotation> ia, PointList pl )
     {
         super(REACHED_VIA, name, ia, pl);
     }
 
     public ViaInstruction( Instruction instr )
     {
-        this(instr.getName(), instr.getAnnotation(), instr.getPoints());
+        this(instr.getName(), instr.getAnnotations(), instr.getPoints());
         setDistance(instr.getDistance());
         setTime(instr.getTime());
     }

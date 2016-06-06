@@ -45,6 +45,7 @@ public class EncodingManager
     public static final String RACINGBIKE = "racingbike";
     public static final String MOUNTAINBIKE = "mtb";
     public static final String FOOT = "foot";
+    public static final String BLINDMAN = "blindman";
     public static final String MOTORCYCLE = "motorcycle";
 
     private final List<AbstractFlagEncoder> edgeEncoders = new ArrayList<AbstractFlagEncoder>();
@@ -154,6 +155,9 @@ public class EncodingManager
 
             else if (entry.equals(FOOT))
                 fe = new FootFlagEncoder(configuration);
+            
+            else if (entry.equals(BLINDMAN))
+                fe = new BlindManFlagEncoder(configuration);
 
             else if (entry.equals(MOTORCYCLE))
                 fe = new MotorcycleFlagEncoder(configuration);

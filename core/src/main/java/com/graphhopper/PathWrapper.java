@@ -19,9 +19,11 @@ package com.graphhopper;
 
 import com.graphhopper.util.InstructionList;
 import com.graphhopper.util.PointList;
+import com.graphhopper.util.Translation;
 import com.graphhopper.util.shapes.BBox;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -41,6 +43,7 @@ public class PathWrapper
     private InstructionList instructions;
     private PointList list = PointList.EMPTY;
     private final List<Throwable> errors = new ArrayList<Throwable>(4);
+    private String detailedOverview = "";
 
     /**
      * @return the description of this route alternative to make it meaningful for the user e.g. it
@@ -267,5 +270,42 @@ public class PathWrapper
     {
         this.errors.addAll(errors);
         return this;
+    }
+    
+    /**
+     * 
+     * @param additionalFeatures k:feature - v:quantity
+     * @param tr
+     * @return 
+     */
+    public PathWrapper setDetailedOverview( HashMap<String, Integer> additionalFeatures, Translation tr )
+    {
+        String featurestring = "";
+        boolean firstrun = true;
+        for (String feature : additionalFeatures.keySet())
+        {
+            if (!firstrun)
+                featurestring += " " + tr.tr("and") + " ";
+            else
+                firstrun = false;
+            
+            int quantity = additionalFeatures.get(feature);
+            if (quantity > 1)
+                feature = feature + "s";
+            featurestring += quantity + " " + feature;
+        }
+        this.detailedOverview = "The calculated route leads from A to B. The route is " 
+                + this.distance 
+                + " meters long and contains " + featurestring + ".";
+        return this;
+    }
+    
+    /**
+     * 
+     * @return 
+     */
+    public String getDetailedOverview()
+    {
+        return this.detailedOverview;
     }
 }
