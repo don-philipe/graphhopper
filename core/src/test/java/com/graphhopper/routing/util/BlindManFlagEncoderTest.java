@@ -87,24 +87,29 @@ public class BlindManFlagEncoderTest
         assertEquals("steps", wayname);
     }
     
-//    @Test
-//    public void testAnnotations2()
-//    {
-//        OSMWay way1 = new OSMWay(1);
-//        way1.setTag("highway", "footway");
-//        way1.getNodes().add(1);
-//        way1.getNodes().add(2);
-//        
-//        OSMWay way2 = new OSMWay(2);
-//        way2.setTag("highway", "steps");
-//        way2.setTag("lit", "yes");
-//        way1.getNodes().add(2);
-//        way1.getNodes().add(3);
-//        
-//        OSMWay way3 = new OSMWay(3);
-//        way3.setTag("highway", "footway");
-//        way3.setTag("lit", "yes");
-//        way1.getNodes().add(3);
-//        way1.getNodes().add(4);
-//    }
+    @Test
+    public void testSurfaceAnnotations()
+    {
+        OSMWay way = new OSMWay(1);
+        way.setTag("highway", "footway");
+        way.setTag("surface", "cobblestone");
+        
+        EncodingManager encodingManager = new EncodingManager("BLINDMAN");
+        BlindManFlagEncoder bmfe = (BlindManFlagEncoder) encodingManager.getEncoder("BLINDMAN");
+        assertTrue(bmfe.acceptWay(way) > 0);
+        
+        long flags = bmfe.handleWayTags(way, bmfe.acceptWay(way), 0);
+        Translation tr = SINGLETON.getWithFallBack(Locale.UK);
+        List<InstructionAnnotation> ias = bmfe.getAnnotations(flags, tr);
+        String surface = "";
+        for (InstructionAnnotation ia : ias)
+        {
+            if (ia.getType().equals("surface"))
+            {
+                surface = ia.getMessage();
+                break;
+            }
+        }
+        assertEquals("cobblestone", surface);
+    }
 }

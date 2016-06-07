@@ -94,14 +94,15 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         encoded = handleBlindManRelated(way, encoded);
         
         // surface
-        String surfaceValue = "";
+        Integer sValue;
         if (way.hasTag("tactile_paving", "yes"))    // prefer tactile paving if present
-                surfaceValue = "tactile_paving";
+            sValue = surfaceMap.get("tactile_paving");
         else
-            way.getTag("surface");
-        Integer sValue = surfaceMap.get(surfaceValue);
+            sValue = surfaceMap.get(way.getTag("surface"));
+        
         if (sValue == null)
             sValue = 0;
+            
         encoded = surfaceEncoder.setValue(encoded, sValue);
         
         return encoded;
@@ -122,8 +123,12 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         ia.add(new InstructionAnnotation(0, "wayType", wayName));
         
         int surfaceType = (int) surfaceEncoder.getValue(flags);
-        String surfaceName = (String) surfaceMap.keySet().toArray()[surfaceType];
-        ia.add(new InstructionAnnotation(0, "surface", surfaceName));
+        for (String key : surfaceMap.keySet())
+        {
+            if (surfaceMap.get(key).equals(surfaceType))
+                ia.add(new InstructionAnnotation(0, "surface", key));
+        }
+        
         return ia;
     }
 
