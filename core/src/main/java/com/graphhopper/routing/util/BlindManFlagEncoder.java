@@ -38,7 +38,8 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         super(properties);
         
         List<String> surfaceList = Arrays.asList("_default", "asphalt", "unpaved", "paved", "gravel",
-                "ground", "dirt", "grass", "concrete", "paving_stones", "sand", "compacted", "cobblestone");
+                "ground", "dirt", "grass", "concrete", "paving_stones", "sand", "compacted", "cobblestone",
+                "tactile_paving");
         int counter = 0;
         for (String s : surfaceList)
         {
@@ -92,8 +93,12 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         long encoded = super.handleWayTags(way, allowed, relationFlags);
         encoded = handleBlindManRelated(way, encoded);
         
-        // SURFACE
-        String surfaceValue = way.getTag("surface");
+        // surface
+        String surfaceValue = "";
+        if (way.hasTag("tactile_paving", "yes"))    // prefer tactile paving if present
+                surfaceValue = "tactile_paving";
+        else
+            way.getTag("surface");
         Integer sValue = surfaceMap.get(surfaceValue);
         if (sValue == null)
             sValue = 0;
@@ -115,6 +120,10 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         int wayType = (int) wayTypeEncoder.getValue(flags);
         String wayName = getWayName(wayType, tr);
         ia.add(new InstructionAnnotation(0, "wayType", wayName));
+        
+        int surfaceType = (int) surfaceEncoder.getValue(flags);
+        String surfaceName = (String) surfaceMap.keySet().toArray()[surfaceType];
+        ia.add(new InstructionAnnotation(0, "surface", surfaceName));
         return ia;
     }
 
@@ -206,10 +215,10 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         {
             this.value = value;
         }
-
+        
         public int getValue()
         {
-            return value;
+            return this.value;
         }
     }
 }
