@@ -11,10 +11,12 @@ function addInstruction(mapLayer, main, instr, instrIndex, lngLat) {
         sign = messages.getSignName(sign);
     var title = instr.text;
     if (instr.annotations) {
-        if (!title)
-            title = instr.annotations.wayType;
-        else
-            title = title + ", " + instr.annotations.wayType;
+        for (var item in instr.annotations) {
+            if (!title)
+                title = item + ": " + instr.annotations[item];
+            else
+                title = title + ", " + item + ": " + instr.annotations[item];
+        }
     }
 
     var instructionDiv = $("<tr class='instruction'/>");

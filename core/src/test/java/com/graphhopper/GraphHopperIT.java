@@ -431,6 +431,7 @@ public class GraphHopperIT
         assertEquals("Turn left", resultJson.get(1).get("text"));
         annotation = (Map<String, String>) resultJson.get(1).get("annotations");
         assertEquals("steps", annotation.get("wayType"));
+        assertEquals("_default", annotation.get("surface"));
         
         assertEquals("Turn right", resultJson.get(2).get("text"));
         annotation = (Map<String, String>) resultJson.get(2).get("annotations");

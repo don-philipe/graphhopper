@@ -90,7 +90,7 @@ public class InstructionList implements Iterable<Instruction>
             Collections.sort(ias);      // sort by importance ascending
             Collections.reverse(ias);   // reverses sorting, so the most important annotation comes first
             for (InstructionAnnotation ia : ias)
-            {    
+            {
                 if (!ia.isEmpty())
                 {
                     annotations.put(ia.getType(), ia.getMessage());

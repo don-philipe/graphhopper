@@ -111,5 +111,23 @@ public class BlindManFlagEncoderTest
             }
         }
         assertEquals("cobblestone", surface);
+        
+        way = new OSMWay(1);
+        way.setTag("highway", "service");
+        way.setTag("name", "Am Jägerpark");
+        way.setTag("oneway", "yes");
+        
+        flags = bmfe.handleWayTags(way, bmfe.acceptWay(way), 0);
+        ias = bmfe.getAnnotations(flags, tr);
+        surface = "";
+        for (InstructionAnnotation ia : ias)
+        {
+            if (ia.getType().equals("surface"))
+            {
+                surface = ia.getMessage();
+                break;
+            }
+        }
+        assertEquals("_default", surface);
     }
 }

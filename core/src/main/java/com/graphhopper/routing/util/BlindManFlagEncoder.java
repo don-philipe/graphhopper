@@ -118,7 +118,8 @@ public class BlindManFlagEncoder extends FootFlagEncoder
             wValue = wayTypeMap.get(way.getTag("highway"));
         
         if (wValue == null)
-            wValue = 0;
+            wValue = wayTypeMap.get("_default");
+        
         encoded = wayTypeEncoder.setValue(encoded, wValue);
         
         // surface
@@ -129,7 +130,7 @@ public class BlindManFlagEncoder extends FootFlagEncoder
             sValue = surfaceMap.get(way.getTag("surface"));
         
         if (sValue == null)
-            sValue = 0;
+            sValue = surfaceMap.get("_default");
             
         encoded = surfaceEncoder.setValue(encoded, sValue);
         
