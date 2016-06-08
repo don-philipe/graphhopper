@@ -31,17 +31,35 @@ public class BlindManFlagEncoder extends FootFlagEncoder
 {
     private EncodedValue wayTypeEncoder;
     private EncodedValue surfaceEncoder;
+    private final Set<String> indoorWayTypeSet = new HashSet<String>();
+    private final Set<String> wayTypeSet = new HashSet<String>();
+    private final Set<String> surfaceSet = new HashSet<String>();
+    private final Map<String, Integer> wayTypeMap = new HashMap<String, Integer>();
     private final Map<String, Integer> surfaceMap = new HashMap<String, Integer>();
     
     public BlindManFlagEncoder( PMap properties )
     {
         super(properties);
         
-        List<String> surfaceList = Arrays.asList("_default", "asphalt", "unpaved", "paved", "gravel",
-                "ground", "dirt", "grass", "concrete", "paving_stones", "sand", "compacted", "cobblestone",
-                "tactile_paving");
+        indoorWayTypeSet.addAll(Arrays.asList("corridor", "foyer"));
+        wayTypeSet.addAll(Arrays.asList("footway", "steps", "road", "elevator"));
+        
+        List<String> allWayTypeList = new LinkedList<String>();
+        allWayTypeList.add("_default");
+        allWayTypeList.addAll(indoorWayTypeSet);
+        allWayTypeList.addAll(wayTypeSet);
         int counter = 0;
-        for (String s : surfaceList)
+        for (String s : allWayTypeList)
+        {
+            wayTypeMap.put(s, counter++);
+        }
+        
+        surfaceSet.addAll(Arrays.asList("_default", "asphalt", "unpaved", "paved", "gravel",
+                "ground", "dirt", "grass", "concrete", "paving_stones", "sand", "compacted", "cobblestone",
+                "tactile_paving"));
+        
+        counter = 0;
+        for (String s : surfaceSet)
         {
             surfaceMap.put(s, counter++);
         }
@@ -91,7 +109,17 @@ public class BlindManFlagEncoder extends FootFlagEncoder
     public long handleWayTags( OSMWay way, long allowed, long relationFlags )
     {
         long encoded = super.handleWayTags(way, allowed, relationFlags);
-        encoded = handleBlindManRelated(way, encoded);
+        
+        // waytype
+        Integer wValue;
+        if (way.hasTag("indoor", indoorWayTypeSet))    // prefer indoor ways over normal ways
+            wValue = wayTypeMap.get(way.getTag("indoor"));
+        else
+            wValue = wayTypeMap.get(way.getTag("highway"));
+        
+        if (wValue == null)
+            wValue = 0;
+        encoded = wayTypeEncoder.setValue(encoded, wValue);
         
         // surface
         Integer sValue;
@@ -119,8 +147,11 @@ public class BlindManFlagEncoder extends FootFlagEncoder
     {
         List<InstructionAnnotation> ia = new ArrayList<InstructionAnnotation>();
         int wayType = (int) wayTypeEncoder.getValue(flags);
-        String wayName = getWayName(wayType, tr);
-        ia.add(new InstructionAnnotation(0, "wayType", wayName));
+        for (String key : wayTypeMap.keySet())
+        {
+            if (wayTypeMap.get(key).equals(wayType))
+                ia.add(new InstructionAnnotation(0, "wayType", key));
+        }
         
         int surfaceType = (int) surfaceEncoder.getValue(flags);
         for (String key : surfaceMap.keySet())
@@ -130,100 +161,5 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         }
         
         return ia;
-    }
-
-    /**
-     * 
-     * @param wayType
-     * @param tr
-     * @return 
-     */
-    private String getWayName( int wayType, Translation tr )
-    {
-        String wayTypeName = "";
-        //TODO:
-        switch (wayType)
-        {
-            case 0:
-//                wayTypeName = tr.tr("corridor");
-                wayTypeName = "corridor";
-                break;
-            case 1:
-//                wayTypeName = tr.tr("foyer");
-                wayTypeName = "foyer";
-                break;
-            case 2:
-//                wayTypeName = tr.tr("steps");
-                wayTypeName = "steps";
-                break;
-            case 3:
-//                wayTypeName = tr.tr("elevator");
-                wayTypeName = "elevator";
-                break;
-            case 4:
-//                wayTypeName = tr.tr("footway");
-                wayTypeName = "footway";
-                break;
-            case 5:
-//                wayTypeName = tr.tr("other_way");
-                wayTypeName = "other_way";
-                break;
-        }
-        return wayTypeName;
-    }
-    
-    /**
-     * 
-     * @param way
-     * @param encoded
-     * @return 
-     */
-    private long handleBlindManRelated( OSMWay way, long encoded )
-    {
-        WayType wayType;
-        if (way.hasTag("indoor", "corridor"))
-            wayType = WayType.CORRIDOR;
-        else if (way.hasTag("indoor", "foyer"))
-        {
-            wayType = WayType.FOYER;
-//            if (way.hasTag("tactile_paving", "yes"))
-        }
-        else if (way.hasTag("highway", "steps"))
-            wayType = WayType.STEPS;
-        else if (way.hasTag("highway", "elevator"))
-            wayType = WayType.ELEVATOR;
-        else if (way.hasTag("highway", "footway"))
-            wayType = WayType.FOOTWAY;
-        else
-            wayType = WayType.OTHER_WAY;
-            
-        //TODO
-        return wayTypeEncoder.setValue(encoded, wayType.getValue());
-    }
-    
-    /**
-     * 
-     */
-    private enum WayType
-    {
-        //TODO:
-        CORRIDOR(0),
-        FOYER(1),
-        STEPS(2),
-        ELEVATOR(3),
-        FOOTWAY(4),
-        OTHER_WAY(5);
-
-        private final int value;
-
-        private WayType( int value )
-        {
-            this.value = value;
-        }
-        
-        public int getValue()
-        {
-            return this.value;
-        }
     }
 }
