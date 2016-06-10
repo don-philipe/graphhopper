@@ -411,6 +411,7 @@ public class GraphHopperIT
                 setCHEnable(false).
                 setGraphHopperLocation(tmpGraphFile).
                 setEncodingManager(new EncodingManager(tmpImportVehicles)).
+                setEnableDetailedInstructions(true).
                 importOrLoad();
 
         GHResponse rsp = tmpHopper.route(new GHRequest(51.029457909992836, 13.728932216531147, 51.02967775185081, 13.729386511811759).
@@ -418,6 +419,9 @@ public class GraphHopperIT
 
         PathWrapper arsp = rsp.getBest();
         assertEquals(6, arsp.getPoints().getSize());
+        
+        String overview = arsp.getDetailedOverview();
+        assertEquals("The calculated route leads from footway to corridor. The route is 55 meters long and contains 1 stairs.", overview);
 
         InstructionList il = arsp.getInstructions();
         assertEquals(4, il.size());

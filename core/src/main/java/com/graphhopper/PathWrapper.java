@@ -17,10 +17,12 @@
  */
 package com.graphhopper;
 
+import com.graphhopper.util.InstructionAnnotation;
 import com.graphhopper.util.InstructionList;
 import com.graphhopper.util.PointList;
 import com.graphhopper.util.Translation;
 import com.graphhopper.util.shapes.BBox;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -280,29 +282,75 @@ public class PathWrapper
      */
     public PathWrapper setDetailedOverview( HashMap<String, Integer> additionalFeatures, Translation tr )
     {
+        String start = this.instructions.get(0).getName();
+        if (start.isEmpty())
+        {
+            for (InstructionAnnotation ia : this.instructions.get(0).getAnnotations())
+            {
+                if (ia.getType().equals("wayType"))
+                {
+                    start = ia.getMessage();
+                    break;
+                }
+            }
+        }
+        String finish = this.instructions.get(this.instructions.size() - 2).getName();
+        if (finish.isEmpty())
+        {
+            for (InstructionAnnotation ia : this.instructions.get(this.instructions.size() - 2).getAnnotations())
+            {
+                if (ia.getType().equals("wayType"))
+                {
+                    finish = ia.getMessage();
+                    break;
+                }
+            }
+        }
+        DecimalFormat df = new DecimalFormat("#");  // round distance to full meters
+        this.detailedOverview = "The calculated route leads from "
+                + start + " to "
+                + finish + ". The route is " 
+                + df.format(this.distance)
+                + " meters long";
+        
         String featurestring = "";
         boolean firstrun = true;
         for (String feature : additionalFeatures.keySet())
         {
-            if (!firstrun)
-                featurestring += " " + tr.tr("and") + " ";
-            else
-                firstrun = false;
-            
-            int quantity = additionalFeatures.get(feature);
-            if (quantity > 1)
-                feature = feature + "s";
-            featurestring += quantity + " " + feature;
+            if (feature.equals("steps"))
+            {
+                if (!firstrun)
+                    featurestring += " " + tr.tr("and") + " ";
+                else
+                    firstrun = false;
+                int quantity = additionalFeatures.get(feature);
+                featurestring += quantity + " stairs";
+            }
+            if (feature.equals("elevator"))
+            {
+                if (!firstrun)
+                    featurestring += " " + tr.tr("and") + " ";
+                else
+                    firstrun = false;
+                int quantity = additionalFeatures.get(feature);
+                if (quantity > 1)
+                    featurestring += quantity + feature + "s";
+                else
+                    featurestring += quantity + " " + feature;
+            }
         }
-        this.detailedOverview = "The calculated route leads from A to B. The route is " 
-                + this.distance 
-                + " meters long and contains " + featurestring + ".";
+        
+        if (!featurestring.isEmpty())
+            this.detailedOverview += " and contains " + featurestring;
+        
+        this.detailedOverview += ".";
+        
         return this;
     }
     
     /**
      * 
-     * @return 
+     * @return Overview when this feature is enabled or an empty String otherwise.
      */
     public String getDetailedOverview()
     {

@@ -73,6 +73,8 @@ public class SimpleRouteSerializer implements RouteSerializer
                 jsonPath.put("time", ar.getTime());
                 if (!ar.getDescription().isEmpty())
                     jsonPath.put("description", ar.getDescription());
+                if (!ar.getDetailedOverview().isEmpty())
+                    jsonPath.put("detailed_overview", ar.getDetailedOverview());
 
                 if (calcPoints)
                 {

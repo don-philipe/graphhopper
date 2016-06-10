@@ -560,6 +560,10 @@ function routeLatLng(request, doQuery) {
                 routeInfo.text(path.description);
                 routeInfo.append("<br/>");
             }
+            if (path.detailed_overview && path.detailed_overview.length > 0) {
+                routeInfo.text(path.detailed_overview);
+                routeInfo.append("<br/>");
+            }
             routeInfo.append(translate.tr("routeInfo", [tmpDist, tmpTime]));
             if (request.hasElevation()) {
                 routeInfo.append(translate.createEleInfoString(path.ascend, path.descend));
