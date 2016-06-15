@@ -299,7 +299,7 @@ public class PathWrapper
         {
             for (InstructionAnnotation ia : this.instructions.get(this.instructions.size() - 2).getAnnotations())
             {
-                if (ia.getType().equals("endRoom"))
+                if (ia.getType().equals("room"))
                 {
                     finish = "room " + ia.getMessage();
                     break;
