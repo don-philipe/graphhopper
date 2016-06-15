@@ -17,10 +17,12 @@
  */
 package com.graphhopper.routing.util;
 
+import com.graphhopper.reader.OSMNode;
 import com.graphhopper.reader.OSMWay;
 import com.graphhopper.util.InstructionAnnotation;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.Translation;
+import java.text.DecimalFormat;
 import java.util.*;
 
 /**
@@ -31,6 +33,11 @@ public class BlindManFlagEncoder extends FootFlagEncoder
 {
     private EncodedValue wayTypeEncoder;
     private EncodedValue surfaceEncoder;
+    private HashMap<Long, String> landmarks;
+    private EncodedValue buildingIdEncoder;
+    private EncodedValue levelEncoder;
+    private EncodedValue startRoomEncoder;
+    private EncodedValue endRoomEncoder;
     private final Set<String> indoorWayTypeSet = new HashSet<String>();
     private final Set<String> wayTypeSet = new HashSet<String>();
     private final Set<String> surfaceSet = new HashSet<String>();
@@ -84,9 +91,34 @@ public class BlindManFlagEncoder extends FootFlagEncoder
      * @return 
      */
     @Override
+    public int defineNodeBits( int index, int shift )
+    {
+        landmarks = new HashMap<Long, String>();
+        shift = super.defineNodeBits(index, shift);
+        
+        return shift;
+    }
+    
+    /**
+     * 
+     * @param index
+     * @param shift
+     * @return 
+     */
+    @Override
     public int defineWayBits( int index, int shift )
     {
         shift = super.defineWayBits(index, shift);
+        
+        buildingIdEncoder = new EncodedValue("buildingId", shift, 16, 1, 0, 2000);
+        shift += buildingIdEncoder.getBits();
+        
+//        startRoomEncoder = new EncodedValue("startRoom", shift, 9, 1, 0, 511);
+//        shift += startRoomEncoder.getBits();
+        endRoomEncoder = new EncodedValue("endRoom", shift, 11, 1, 0, 1500);
+        shift += endRoomEncoder.getBits();
+        levelEncoder = new EncodedValue("level", shift, 4, 1, 0, 10);
+        shift += levelEncoder.getBits();
         
         //TODO: change values?
         wayTypeEncoder = new EncodedValue("WayType", shift, 3, 1, 5, 6, true);
@@ -96,6 +128,16 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         shift += surfaceEncoder.getBits();
         
         return shift;
+    }
+    
+    @Override
+    public long handleNodeTags( OSMNode node )
+    {
+        long encoded = super.handleNodeTags(node);
+        if (node.hasTag("door", "yes") && node.hasTag("ref"))
+            landmarks.put(node.getId(), "ref:" + node.getTag("ref"));
+        
+        return encoded;
     }
     
     /**
@@ -109,6 +151,27 @@ public class BlindManFlagEncoder extends FootFlagEncoder
     public long handleWayTags( OSMWay way, long allowed, long relationFlags )
     {
         long encoded = super.handleWayTags(way, allowed, relationFlags);
+        
+//        if(landmarks.containsKey(way.getNodes().get(0)))
+//        {
+//            String startroom = landmarks.get(way.getNodes().get(0));
+////            String buildingid = startroom.substring(4, 8);
+//            String level = startroom.substring(8, 10);
+//            startroom = startroom.substring(11);
+//            
+//            encoded = startRoomEncoder.setValue(encoded, Long.valueOf(startroom));
+//            encoded = levelEncoder.setValue(encoded, Long.valueOf(level));
+//        }
+        if(landmarks.containsKey(way.getNodes().get(way.getNodes().size() - 1)))
+        {
+            String endroom = landmarks.get(way.getNodes().get(way.getNodes().size() - 1));
+            String buildingid = endroom.substring(4, 8);
+            String level = endroom.substring(8, 10);
+            endroom = endroom.substring(11);
+            encoded = buildingIdEncoder.setValue(encoded, Long.valueOf(buildingid));
+            encoded = levelEncoder.setValue(encoded, Long.valueOf(level));
+            encoded = endRoomEncoder.setValue(encoded, Long.valueOf(endroom));
+        }
         
         // waytype
         Integer wValue;
@@ -147,6 +210,26 @@ public class BlindManFlagEncoder extends FootFlagEncoder
     public List<InstructionAnnotation> getAnnotations( long flags, Translation tr )
     {
         List<InstructionAnnotation> ia = new ArrayList<InstructionAnnotation>();
+//        long level = levelEncoder.getValue(flags);
+//        DecimalFormat df1 = new DecimalFormat("#00");
+//        String levelstring = df1.format(level);
+//        long startroomid = startRoomEncoder.getValue(flags);
+        DecimalFormat df1 = new DecimalFormat("#0000");
+        DecimalFormat df2 = new DecimalFormat("#00");
+//        if (startroomid > 0)
+//        {
+//            String formatted = df2.format(startroomid);
+//            ia.add(new InstructionAnnotation(0, "startRoom", levelstring + "." + formatted));
+//        }
+        double buildingid = buildingIdEncoder.getValue(flags);
+        double level = levelEncoder.getValue(flags);
+        double endroomid = endRoomEncoder.getValue(flags);
+        if (endroomid > 0)
+        {
+            String formatted = df1.format(buildingid) + df2.format(level) + "." + df1.format(endroomid);
+            ia.add(new InstructionAnnotation(0, "endRoom", formatted));
+        }
+        
         int wayType = (int) wayTypeEncoder.getValue(flags);
         for (String key : wayTypeMap.keySet())
         {

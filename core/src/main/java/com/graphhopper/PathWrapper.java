@@ -299,9 +299,9 @@ public class PathWrapper
         {
             for (InstructionAnnotation ia : this.instructions.get(this.instructions.size() - 2).getAnnotations())
             {
-                if (ia.getType().equals("wayType"))
+                if (ia.getType().equals("endRoom"))
                 {
-                    finish = ia.getMessage();
+                    finish = "room " + ia.getMessage();
                     break;
                 }
             }

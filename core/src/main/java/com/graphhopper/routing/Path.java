@@ -420,7 +420,7 @@ public class Path
             private Instruction prevInstruction;
             private boolean prevInRoundabout = false;
             private String name, prevName = null;
-            private List<InstructionAnnotation> annotation, prevAnnotation;
+            private List<InstructionAnnotation> annotations, prevAnnotations;
             private EdgeExplorer outEdgeExplorer = graph.createEdgeExplorer(new DefaultEdgeFilter(encoder, false, true));
 
             @Override
@@ -450,15 +450,15 @@ public class Path
                 }
 
                 name = edge.getName();
-                annotation = encoder.getAnnotations(flags, tr);
+                annotations = encoder.getAnnotations(flags, tr);
 
                 if ((prevName == null) && (!isRoundabout)) // very first instruction (if not in Roundabout)
                 {
                     int sign = Instruction.CONTINUE_ON_STREET;
-                    prevInstruction = new Instruction(sign, name, annotation, new PointList(10, nodeAccess.is3D()));
+                    prevInstruction = new Instruction(sign, name, annotations, new PointList(10, nodeAccess.is3D()));
                     ways.add(prevInstruction);
                     prevName = name;
-                    prevAnnotation = annotation;
+                    prevAnnotations = annotations;
 
                 } else
                 {
@@ -469,7 +469,7 @@ public class Path
                         {
                             int sign = Instruction.USE_ROUNDABOUT;
                             RoundaboutInstruction roundaboutInstruction = new RoundaboutInstruction(sign, name,
-                                    annotation, new PointList(10, nodeAccess.is3D()));
+                                    annotations, new PointList(10, nodeAccess.is3D()));
                             if (prevName != null)
                             {
                                 // check if there is an exit at the same node the roundabout was entered
@@ -498,7 +498,7 @@ public class Path
                             {
                                 prevOrientation = ac.calcOrientation(prevLat, prevLon, latitude, longitude);
                                 prevName = name;
-                                prevAnnotation = annotation;
+                                prevAnnotations = annotations;
                             }
                             prevInstruction = roundaboutInstruction;
                             ways.add(prevInstruction);
@@ -538,9 +538,9 @@ public class Path
                                 .setExited();
 
                         prevName = name;
-                        prevAnnotation = annotation;
+                        prevAnnotations = annotations;
 
-                    } else if ((!name.equals(prevName)) || (!annotation.equals(prevAnnotation)))
+                    } else if ((!name.equals(prevName)) || (!annotations.equals(prevAnnotations)))
                     {
                         prevOrientation = ac.calcOrientation(doublePrevLat, doublePrevLong, prevLat, prevLon);
                         double orientation = ac.calcOrientation(prevLat, prevLon, latitude, longitude);
@@ -578,10 +578,10 @@ public class Path
                                 sign = Instruction.TURN_SHARP_RIGHT;
 
                         }
-                        prevInstruction = new Instruction(sign, name, annotation, new PointList(10, nodeAccess.is3D()));
+                        prevInstruction = new Instruction(sign, name, annotations, new PointList(10, nodeAccess.is3D()));
                         ways.add(prevInstruction);
                         prevName = name;
-                        prevAnnotation = annotation;
+                        prevAnnotations = annotations;
                     }
                 }
 

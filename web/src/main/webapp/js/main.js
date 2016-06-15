@@ -32068,7 +32068,7 @@ function routeLatLng(request, doQuery) {
                 routeInfo.text(path.detailed_overview);
                 routeInfo.append("<br/>");
             }
-            routeInfo.append(translate.tr("routeInfo", [tmpDist, tmpTime]));
+//            routeInfo.append(translate.tr("routeInfo", [tmpDist, tmpTime]));
             if (request.hasElevation()) {
                 routeInfo.append(translate.createEleInfoString(path.ascend, path.descend));
             }

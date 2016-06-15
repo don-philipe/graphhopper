@@ -44,17 +44,32 @@ public class Instruction
     protected long time;
     protected final PointList points;
     protected final List<InstructionAnnotation> annotation;
+    protected final String startLandmark;
+    protected final String endLandmark;
 
+    public Instruction( int sign, String name, List<InstructionAnnotation> ia, PointList pl)
+    {
+        this(sign, name, ia, pl, "", "");
+    }
+    
     /**
      * The points, distances and times have exactly the same count. The last point of this
      * instruction is not duplicated here and should be in the next one.
+     * @param sign
+     * @param name
+     * @param ia
+     * @param pl
+     * @param startLandmark landmark at the beginning of the way
+     * @param endLandmark landmark at the end of the way
      */
-    public Instruction( int sign, String name, List<InstructionAnnotation> ia, PointList pl )
+    public Instruction( int sign, String name, List<InstructionAnnotation> ia, PointList pl, String startLandmark, String endLandmark )
     {
         this.sign = sign;
         this.name = name;
         this.points = pl;
         this.annotation = ia;
+        this.startLandmark = startLandmark;
+        this.endLandmark = endLandmark;
     }
 
     /**
@@ -69,6 +84,16 @@ public class Instruction
     public List<InstructionAnnotation> getAnnotations()
     {
         return annotation;
+    }
+    
+    public String getStartLandmark()
+    {
+        return this.startLandmark;
+    }
+    
+    public String getEndLandmark()
+    {
+        return this.endLandmark;
     }
 
     /**
