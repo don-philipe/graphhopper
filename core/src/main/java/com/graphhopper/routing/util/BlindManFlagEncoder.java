@@ -33,16 +33,19 @@ public class BlindManFlagEncoder extends FootFlagEncoder
 {
     private EncodedValue wayTypeEncoder;
     private EncodedValue surfaceEncoder;
+    private HashMap<Long, String> rooms;
     private HashMap<Long, String> landmarks;
     private EncodedValue buildingIdEncoder;
     private EncodedValue levelEncoder;
-    private EncodedValue startRoomEncoder;
     private EncodedValue endRoomEncoder;
+    private EncodedValue landmarkEncoder;
     private final Set<String> indoorWayTypeSet = new HashSet<String>();
     private final Set<String> wayTypeSet = new HashSet<String>();
     private final Set<String> surfaceSet = new HashSet<String>();
+    private final Set<String> landmarkSet = new HashSet<String>();
     private final Map<String, Integer> wayTypeMap = new HashMap<String, Integer>();
     private final Map<String, Integer> surfaceMap = new HashMap<String, Integer>();
+    private final Map<String, Integer> landmarkMap = new HashMap<String, Integer>();
     
     public BlindManFlagEncoder( PMap properties )
     {
@@ -70,6 +73,14 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         {
             surfaceMap.put(s, counter++);
         }
+        
+        landmarkSet.addAll(Arrays.asList("_default", "entrance", "door"));
+        
+        counter = 0;
+        for (String s : landmarkSet)
+        {
+            landmarkMap.put(s, counter++);
+        }
     }
     
     @Override
@@ -93,6 +104,7 @@ public class BlindManFlagEncoder extends FootFlagEncoder
     @Override
     public int defineNodeBits( int index, int shift )
     {
+        rooms = new HashMap<Long, String>();
         landmarks = new HashMap<Long, String>();
         shift = super.defineNodeBits(index, shift);
         
@@ -112,16 +124,16 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         
         buildingIdEncoder = new EncodedValue("buildingId", shift, 16, 1, 0, 2000);
         shift += buildingIdEncoder.getBits();
-        
-//        startRoomEncoder = new EncodedValue("startRoom", shift, 9, 1, 0, 511);
-//        shift += startRoomEncoder.getBits();
         endRoomEncoder = new EncodedValue("endRoom", shift, 11, 1, 0, 1500);
         shift += endRoomEncoder.getBits();
         levelEncoder = new EncodedValue("level", shift, 4, 1, 0, 10);
         shift += levelEncoder.getBits();
         
+        landmarkEncoder = new EncodedValue("landmark", shift, 2, 1, 0, landmarkMap.size(), true);
+        shift += landmarkEncoder.getBits();
+        
         //TODO: change values?
-        wayTypeEncoder = new EncodedValue("WayType", shift, 3, 1, 5, 6, true);
+        wayTypeEncoder = new EncodedValue("WayType", shift, 3, 1, 5, wayTypeMap.size(), true);
         shift += wayTypeEncoder.getBits();
         
         surfaceEncoder = new EncodedValue("surface", shift, 4, 1, 0, surfaceMap.size(), true);
@@ -135,7 +147,12 @@ public class BlindManFlagEncoder extends FootFlagEncoder
     {
         long encoded = super.handleNodeTags(node);
         if (node.hasTag("door", "yes") && node.hasTag("ref"))
-            landmarks.put(node.getId(), "ref:" + node.getTag("ref"));
+        {
+            rooms.put(node.getId(), "ref:" + node.getTag("ref"));
+            landmarks.put(node.getId(), "door");
+        }
+        if (node.hasTag("entrance"))
+            landmarks.put(node.getId(), "entrance");
         
         return encoded;
     }
@@ -162,15 +179,23 @@ public class BlindManFlagEncoder extends FootFlagEncoder
 //            encoded = startRoomEncoder.setValue(encoded, Long.valueOf(startroom));
 //            encoded = levelEncoder.setValue(encoded, Long.valueOf(level));
 //        }
-        if(landmarks.containsKey(way.getNodes().get(way.getNodes().size() - 1)))
+        long key = way.getNodes().get(way.getNodes().size() - 1);
+        if (rooms.containsKey(key))
         {
-            String endroom = landmarks.get(way.getNodes().get(way.getNodes().size() - 1));
+            String endroom = rooms.get(key);
             String buildingid = endroom.substring(4, 8);
             String level = endroom.substring(8, 10);
             endroom = endroom.substring(11);
             encoded = buildingIdEncoder.setValue(encoded, Long.valueOf(buildingid));
             encoded = levelEncoder.setValue(encoded, Long.valueOf(level));
             encoded = endRoomEncoder.setValue(encoded, Long.valueOf(endroom));
+        }
+        if (landmarks.containsKey(key))
+        {
+            Integer value = landmarkMap.get(landmarks.get(key));
+            if (value == null)
+                value = landmarkMap.get("_default");
+            encoded = landmarkEncoder.setValue(encoded, value);
         }
         
         // waytype
@@ -227,7 +252,14 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         if (endroomid > 0)
         {
             String formatted = df1.format(buildingid) + df2.format(level) + "." + df1.format(endroomid);
-            ia.add(new InstructionAnnotation(0, "endRoom", formatted));
+            ia.add(new InstructionAnnotation(0, "room", formatted));
+        }
+        
+        int landmark = (int) landmarkEncoder.getValue(flags);
+        for (String key : landmarkMap.keySet())
+        {
+            if (landmarkMap.get(key).equals(landmark))
+                ia.add(new InstructionAnnotation(0, "landmark", key));
         }
         
         int wayType = (int) wayTypeEncoder.getValue(flags);
