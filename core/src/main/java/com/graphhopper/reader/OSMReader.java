@@ -119,6 +119,7 @@ public class OSMReader implements DataReader
     private ElevationProvider eleProvider = ElevationProvider.NOOP;
     private final boolean exitOnlyPillarNodeException = true;
     private File osmFile;
+    private Date osmDataDate;
     private final Map<FlagEncoder, EdgeExplorer> outExplorerMap = new HashMap<FlagEncoder, EdgeExplorer>();
     private final Map<FlagEncoder, EdgeExplorer> inExplorerMap = new HashMap<FlagEncoder, EdgeExplorer>();
 
@@ -193,23 +194,32 @@ public class OSMReader implements DataReader
                                     + getNodeMap().getMemoryUsage() + "MB) " + Helper.getMemInfo());
                         }
                     }
-                }
-                if (item.isType(OSMElement.RELATION))
+                } else
                 {
-                    final OSMRelation relation = (OSMRelation) item;
-                    if (!relation.isMetaRelation() && relation.hasTag("type", "route"))
-                        prepareWaysWithRelationInfo(relation);
-
-                    if (relation.hasTag("type", "restriction"))
-                        prepareRestrictionRelation(relation);
-
-                    if (++tmpRelationCounter % 50000 == 0)
+                    if (item.isType(OSMElement.RELATION))
                     {
-                        logger.info(nf(tmpRelationCounter) + " (preprocess), osmWayMap:" + nf(getRelFlagsMap().size())
-                                + " " + Helper.getMemInfo());
-                    }
+                        final OSMRelation relation = (OSMRelation) item;
+                        if (!relation.isMetaRelation() && relation.hasTag("type", "route"))
+                            prepareWaysWithRelationInfo(relation);
 
+                        if (relation.hasTag("type", "restriction"))
+                            prepareRestrictionRelation(relation);
+
+                        if (++tmpRelationCounter % 50000 == 0)
+                        {
+                            logger.info(nf(tmpRelationCounter) + " (preprocess), osmWayMap:" + nf(getRelFlagsMap().size())
+                                    + " " + Helper.getMemInfo());
+                        }
+                    } else
+                    {
+                        if (item.isType(OSMElement.FILEHEADER))
+                        {
+                            final OSMFileHeader fileHeader = (OSMFileHeader) item;
+                            osmDataDate = Helper.createFormatter().parse(fileHeader.getTag("timestamp"));
+                        }
+                    }
                 }
+
             }
         } catch (Exception ex)
         {
@@ -352,8 +362,8 @@ public class OSMReader implements DataReader
         long relationFlags = getRelFlagsMap().get(way.getId());
 
         // TODO move this after we have created the edge and know the coordinates => encodingManager.applyWayTags
-        // estimate length of the track e.g. for ferry speed calculation
         TLongList osmNodeIds = way.getNodes();
+        // Estimate length of ways containing a route tag e.g. for ferry speed calculation
         if (osmNodeIds.size() > 1)
         {
             int first = getNodeMap().get(osmNodeIds.get(0));
@@ -363,8 +373,22 @@ public class OSMReader implements DataReader
             if (!Double.isNaN(firstLat) && !Double.isNaN(firstLon) && !Double.isNaN(lastLat) && !Double.isNaN(lastLon))
             {
                 double estimatedDist = distCalc.calcDist(firstLat, firstLon, lastLat, lastLon);
+                // Add artificial tag for the estamated distance and center
                 way.setTag("estimated_distance", estimatedDist);
                 way.setTag("estimated_center", new GHPoint((firstLat + lastLat) / 2, (firstLon + lastLon) / 2));
+            }
+        }
+
+        if (way.getTag("duration") != null)
+        {
+            try
+            {
+                long dur = OSMTagParser.parseDuration(way.getTag("duration"));
+                // Provide the duration value in seconds in an artificial graphhopper specific tag:
+                way.setTag("duration:seconds", Long.toString(dur));
+            } catch (Exception ex)
+            {
+                logger.warn("Parsing error in way with OSMID=" + way.getId() + " : " + ex.getMessage());
             }
         }
 
@@ -789,10 +813,19 @@ public class OSMReader implements DataReader
             towerNodeDistance = 0.0001;
         }
 
-        if (Double.isInfinite(towerNodeDistance) || Double.isNaN(towerNodeDistance))
+        double maxDistance = (Integer.MAX_VALUE - 1) / 1000d;
+        if (Double.isNaN(towerNodeDistance))
         {
             logger.warn("Bug in OSM or GraphHopper. Illegal tower node distance " + towerNodeDistance + " reset to 1m, osm way " + wayOsmId);
             towerNodeDistance = 1;
+        }
+
+        if (Double.isInfinite(towerNodeDistance) || towerNodeDistance > maxDistance)
+        {
+            // Too large is very rare and often the wrong tagging. See #435 
+            // so we can avoid the complexity of splitting the way for now (new towernodes would be required, splitting up geometry etc)
+            logger.warn("Bug in OSM or GraphHopper. Too big tower node distance " + towerNodeDistance + " reset to large value, osm way " + wayOsmId);
+            towerNodeDistance = maxDistance;
         }
 
         EdgeIteratorState iter = graph.edge(fromIndex, toIndex).setDistance(towerNodeDistance).setFlags(flags);
@@ -811,7 +844,7 @@ public class OSMReader implements DataReader
     /**
      * Stores only osmWayIds which are required for relations
      */
-    private void storeOsmWayID( int edgeId, long osmWayId )
+    protected void storeOsmWayID( int edgeId, long osmWayId )
     {
         if (getOsmWayIdSet().contains(osmWayId))
         {
@@ -1013,6 +1046,12 @@ public class OSMReader implements DataReader
                 + ", nodeFlagsMap.size:" + getNodeFlagsMap().size() + ", relFlagsMap.size:" + getRelFlagsMap().size()
                 + ", zeroCounter:" + zeroCounter
                 + " " + Helper.getMemInfo());
+    }
+
+    @Override
+    public Date getDataDate()
+    {
+        return osmDataDate;
     }
 
     @Override
