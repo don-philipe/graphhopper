@@ -83,6 +83,7 @@ public class WheelchairFlagEncoder extends AbstractFlagEncoder
         restrictedValues.add("no");
         restrictedValues.add("restricted");
         restrictedValues.add("military");
+        restrictedValues.add("emergency");
 
         intendedValues.add("yes");
         intendedValues.add("designated");

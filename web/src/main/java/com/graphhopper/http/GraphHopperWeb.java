@@ -17,15 +17,18 @@
  */
 package com.graphhopper.http;
 
-import com.graphhopper.AltResponse;
+import com.graphhopper.PathWrapper;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GHResponse;
 import com.graphhopper.GraphHopperAPI;
 import com.graphhopper.util.*;
 import com.graphhopper.util.shapes.GHPoint;
 import java.util.ArrayList;
+import java.util.HashSet;
 
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -46,9 +49,28 @@ public class GraphHopperWeb implements GraphHopperAPI
     private boolean instructions = true;
     private boolean calcPoints = true;
     private boolean elevation = false;
+    private final Set<String> ignoreSet;
 
     public GraphHopperWeb()
     {
+        // some parameters are supported directly via Java API so ignore them when writing the getHints map
+        ignoreSet = new HashSet<String>();
+        ignoreSet.add("calc_points");
+        ignoreSet.add("calcpoints");
+        ignoreSet.add("instructions");
+        ignoreSet.add("elevation");
+        ignoreSet.add("key");
+
+        // some parameters are in the request:
+        ignoreSet.add("algorithm");
+        ignoreSet.add("locale");
+        ignoreSet.add("point");
+        ignoreSet.add("vehicle");
+
+        // some are special and need to be avoided
+        ignoreSet.add("points_encoded");
+        ignoreSet.add("pointsencoded");
+        ignoreSet.add("type");
     }
 
     public void setDownloader( Downloader downloader )
@@ -109,7 +131,6 @@ public class GraphHopperWeb implements GraphHopperAPI
                         + "Use calcPoints=false and instructions=false to disable point and instruction calculation");
 
             boolean tmpElevation = request.getHints().getBool("elevation", elevation);
-            String tmpKey = request.getHints().get("key", key);
 
             String url = routeServiceUrl
                     + "?"
@@ -125,12 +146,20 @@ public class GraphHopperWeb implements GraphHopperAPI
             if (!request.getVehicle().isEmpty())
                 url += "&vehicle=" + request.getVehicle();
 
-            if (!tmpKey.isEmpty())
-                url += "&key=" + tmpKey;
-            int altMax = request.getHints().getInt("alternative_route.max_num", 0);
-            if (altMax != 0)
+            if (!key.isEmpty())
+                url += "&key=" + key;
+
+            for (Entry<String, String> entry : request.getHints().toMap().entrySet())
             {
-                url += "&alternative_route.max_num=" + altMax;
+                String urlKey = entry.getKey();
+                String urlValue = entry.getValue();
+
+                // use lower case conversion for check only!
+                if (ignoreSet.contains(urlKey.toLowerCase()))
+                    continue;
+
+                if (urlValue != null && !urlValue.isEmpty())
+                    url += "&" + WebHelper.encodeURL(urlKey) + "=" + WebHelper.encodeURL(urlValue);
             }
 
             String str = downloader.downloadAsString(url, true);
@@ -138,15 +167,15 @@ public class GraphHopperWeb implements GraphHopperAPI
 
             GHResponse res = new GHResponse();
             res.addErrors(readErrors(json));
-            if (res.hasRawErrors())
+            if (res.hasErrors())
                 return res;
 
             JSONArray paths = json.getJSONArray("paths");
             for (int index = 0; index < paths.length(); index++)
             {
                 JSONObject path = paths.getJSONObject(index);
-                AltResponse altRsp = createAltResponse(path, tmpCalcPoints, tmpInstructions, tmpElevation);
-                res.addAlternative(altRsp);
+                PathWrapper altRsp = createPathWrapper(path, tmpCalcPoints, tmpInstructions, tmpElevation);
+                res.add(altRsp);
             }
             return res;
 
@@ -156,10 +185,10 @@ public class GraphHopperWeb implements GraphHopperAPI
         }
     }
 
-    public static AltResponse createAltResponse( JSONObject path,
+    public static PathWrapper createPathWrapper( JSONObject path,
                                                  boolean tmpCalcPoints, boolean tmpInstructions, boolean tmpElevation )
     {
-        AltResponse altRsp = new AltResponse();
+        PathWrapper altRsp = new PathWrapper();
         altRsp.addErrors(readErrors(path));
         if (altRsp.hasErrors())
             return altRsp;
@@ -203,7 +232,22 @@ public class GraphHopperWeb implements GraphHopperAPI
                     Instruction instr;
                     if (sign == Instruction.USE_ROUNDABOUT || sign == Instruction.LEAVE_ROUNDABOUT)
                     {
-                        instr = new RoundaboutInstruction(sign, text, ia, instPL);
+                        RoundaboutInstruction ri = new RoundaboutInstruction(sign, text, ia, instPL);
+
+                        if (jsonObj.has("exit_number"))
+                        {
+                            ri.setExitNumber(jsonObj.getInt("exit_number"));
+                        }
+
+                        if (jsonObj.has("turn_angle"))
+                        {
+                            // TODO provide setTurnAngle setter
+                            double angle = jsonObj.getDouble("turn_angle");
+                            ri.setDirOfRotation(angle);
+                            ri.setRadian((angle < 0 ? -Math.PI : Math.PI) - angle);
+                        }
+
+                        instr = ri;
                     } else if (sign == Instruction.REACHED_VIA)
                     {
                         ViaInstruction tmpInstr = new ViaInstruction(text, ia, instPL);
