@@ -39,7 +39,7 @@ public class BlindManFlagEncoderTest
         way.setTag("highway", "footway");
         way.setTag("indoor", "corridor");
         
-        EncodingManager encodingManager = new EncodingManager("BLINDMAN");
+        EncodingManager encodingManager = new EncodingManager("BLINDMAN", 8);
         BlindManFlagEncoder bmfe = (BlindManFlagEncoder) encodingManager.getEncoder("BLINDMAN");
         assertTrue(bmfe.acceptWay(way) > 0);
         
@@ -94,7 +94,7 @@ public class BlindManFlagEncoderTest
         way.setTag("highway", "footway");
         way.setTag("surface", "cobblestone");
         
-        EncodingManager encodingManager = new EncodingManager("BLINDMAN");
+        EncodingManager encodingManager = new EncodingManager("BLINDMAN", 8);
         BlindManFlagEncoder bmfe = (BlindManFlagEncoder) encodingManager.getEncoder("BLINDMAN");
         assertTrue(bmfe.acceptWay(way) > 0);
         

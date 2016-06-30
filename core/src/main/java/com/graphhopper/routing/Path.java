@@ -540,12 +540,12 @@ public class Path
                         prevName = name;
                         prevAnnotations = annotations;
 
-                    } else if ((!name.equals(prevName)) || (!annotations.equals(prevAnnotations)))
+                    } else
                     {
-                        prevOrientation = ac.calcOrientation(doublePrevLat, doublePrevLong, prevLat, prevLon);
+                        double tmpPrevOrientation = ac.calcOrientation(doublePrevLat, doublePrevLong, prevLat, prevLon);
                         double orientation = ac.calcOrientation(prevLat, prevLon, latitude, longitude);
-                        orientation = ac.alignOrientation(prevOrientation, orientation);
-                        double delta = orientation - prevOrientation;
+                        orientation = ac.alignOrientation(tmpPrevOrientation, orientation);
+                        double delta = orientation - tmpPrevOrientation;
                         double absDelta = Math.abs(delta);
                         int sign;
 
@@ -578,10 +578,14 @@ public class Path
                                 sign = Instruction.TURN_SHARP_RIGHT;
 
                         }
-                        prevInstruction = new Instruction(sign, name, annotations, new PointList(10, nodeAccess.is3D()));
-                        ways.add(prevInstruction);
-                        prevName = name;
-                        prevAnnotations = annotations;
+                        if (!name.equals(prevName) || !annotations.equals(prevAnnotations) || sign != Instruction.CONTINUE_ON_STREET)
+                        {
+                            prevOrientation = tmpPrevOrientation;
+                            prevInstruction = new Instruction(sign, name, annotations, new PointList(10, nodeAccess.is3D()));
+                            ways.add(prevInstruction);
+                            prevName = name;
+                            prevAnnotations = annotations;
+                        }
                     }
                 }
 

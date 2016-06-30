@@ -407,7 +407,7 @@ public class GraphHopperTest
                 put("osmreader.osm", testOsm3).
                 put("osmreader.dataaccess", "RAM").
                 put("graph.flagEncoders", "FOOT,CAR").
-                put("graph.bytesForFlags", 8).
+                put("graph.bytesForFlags", 4).
                 put("prepare.chWeighting", "no")).
                 setOSMFile(testOsm3);
         try
@@ -416,7 +416,7 @@ public class GraphHopperTest
             assertTrue(false);
         } catch (Exception ex)
         {
-            assertTrue(ex.getMessage(), ex.getMessage().startsWith("Configured graph.bytesForFlags (8) is not equal to loaded 4"));
+            assertTrue(ex.getMessage(), ex.getMessage().startsWith("Configured graph.bytesForFlags (4) is not equal to loaded 8"));
         }
 
         // different order is no longer okay, see #350

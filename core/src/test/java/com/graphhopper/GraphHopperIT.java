@@ -410,7 +410,7 @@ public class GraphHopperIT
                 setOSMFile(tmpOsmFile).
                 setCHEnable(false).
                 setGraphHopperLocation(tmpGraphFile).
-                setEncodingManager(new EncodingManager(tmpImportVehicles)).
+                setEncodingManager(new EncodingManager(tmpImportVehicles, 8)).
                 setEnableDetailedInstructions(true).
                 importOrLoad();
 
@@ -418,13 +418,13 @@ public class GraphHopperIT
                 setAlgorithm(AlgorithmOptions.ASTAR).setVehicle(tmpVehicle).setWeighting(tmpWeightCalcStr));
 
         PathWrapper arsp = rsp.getBest();
-        assertEquals(6, arsp.getPoints().getSize());
+        assertEquals(7, arsp.getPoints().getSize());
         
         String overview = arsp.getDetailedOverview();
-        assertEquals("The calculated route leads from footway to corridor. The route is 55 meters long and contains 1 stairs.", overview);
+        assertEquals("The calculated route leads from footway to room 111100.0330. The route is 55 meters long and contains 2 stairs.", overview);
 
         InstructionList il = arsp.getInstructions();
-        assertEquals(4, il.size());
+        assertEquals(6, il.size());
         List<Map<String, Object>> resultJson = il.createJson();
 
         assertEquals("Continue", resultJson.get(0).get("text"));
@@ -437,13 +437,18 @@ public class GraphHopperIT
         assertEquals("steps", annotation.get("wayType"));
         assertEquals("_default", annotation.get("surface"));
         
-        assertEquals("Turn right", resultJson.get(2).get("text"));
+        assertEquals("Continue", resultJson.get(2).get("text"));
         annotation = (Map<String, String>) resultJson.get(2).get("annotations");
+        assertEquals("steps", annotation.get("wayType"));
+        
+        assertEquals("Turn right", resultJson.get(3).get("text"));
+        annotation = (Map<String, String>) resultJson.get(3).get("annotations");
         assertEquals("corridor", annotation.get("wayType"));
         
-        assertEquals("Finish!", resultJson.get(3).get("text"));
-        annotation = (Map<String, String>) resultJson.get(3).get("annotations");
+        assertEquals("Finish!", resultJson.get(5).get("text"));
+        annotation = (Map<String, String>) resultJson.get(5).get("annotations");
         assertEquals(null, annotation.get("wayType"));
+        assertEquals("0330", annotation.get("endRoom"));
     }
 
     @Test

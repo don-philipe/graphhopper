@@ -122,9 +122,9 @@ public class BlindManFlagEncoder extends FootFlagEncoder
     {
         shift = super.defineWayBits(index, shift);
         
-        buildingIdEncoder = new EncodedValue("buildingId", shift, 16, 1, 0, 2000);
+        buildingIdEncoder = new EncodedValue("buildingId", shift, 14, 1, 0, 9999);
         shift += buildingIdEncoder.getBits();
-        endRoomEncoder = new EncodedValue("endRoom", shift, 11, 1, 0, 1500);
+        endRoomEncoder = new EncodedValue("endRoom", shift, 14, 1, 0, 9999);
         shift += endRoomEncoder.getBits();
         levelEncoder = new EncodedValue("level", shift, 4, 1, 0, 10);
         shift += levelEncoder.getBits();
@@ -179,23 +179,27 @@ public class BlindManFlagEncoder extends FootFlagEncoder
 //            encoded = startRoomEncoder.setValue(encoded, Long.valueOf(startroom));
 //            encoded = levelEncoder.setValue(encoded, Long.valueOf(level));
 //        }
-        long key = way.getNodes().get(way.getNodes().size() - 1);
-        if (rooms.containsKey(key))
+        
+        if (way.getNodes().size() > 1)
         {
-            String endroom = rooms.get(key);
-            String buildingid = endroom.substring(4, 8);
-            String level = endroom.substring(8, 10);
-            endroom = endroom.substring(11);
-            encoded = buildingIdEncoder.setValue(encoded, Long.valueOf(buildingid));
-            encoded = levelEncoder.setValue(encoded, Long.valueOf(level));
-            encoded = endRoomEncoder.setValue(encoded, Long.valueOf(endroom));
-        }
-        if (landmarks.containsKey(key))
-        {
-            Integer value = landmarkMap.get(landmarks.get(key));
-            if (value == null)
-                value = landmarkMap.get("_default");
-            encoded = landmarkEncoder.setValue(encoded, value);
+            long key = way.getNodes().get(way.getNodes().size() - 1);
+            if (rooms.containsKey(key))
+            {
+                String endroom = rooms.get(key);
+                String buildingid = endroom.substring(4, 8);
+                String level = endroom.substring(8, 10);
+                endroom = endroom.substring(11);
+                encoded = buildingIdEncoder.setValue(encoded, Long.valueOf(buildingid));
+                encoded = levelEncoder.setValue(encoded, Long.valueOf(level));
+                encoded = endRoomEncoder.setValue(encoded, Long.valueOf(endroom));
+            }
+            if (landmarks.containsKey(key))
+            {
+                Integer value = landmarkMap.get(landmarks.get(key));
+                if (value == null)
+                    value = landmarkMap.get("_default");
+                encoded = landmarkEncoder.setValue(encoded, value);
+            }
         }
         
         // waytype

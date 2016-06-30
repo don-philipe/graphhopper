@@ -33,6 +33,9 @@ public class EncodedDoubleValueTest
     {
         EncodedDoubleValue instance = new EncodedDoubleValue("test", 6, 10, 0.01, 5, 10);
         assertEquals(10.12, instance.getDoubleValue(instance.setDoubleValue(0, 10.12)), 1e-4);
+        
+        instance = new EncodedDoubleValue("test", 4, 11, 1, 1000, 2000);
+        assertEquals(1451, instance.getDoubleValue(instance.setDoubleValue(0, 1451)), 1e-4);
     }
 
     @Test
