@@ -252,6 +252,7 @@ public class InstructionListTest
     }
 
     // problem: we normally don't want instructions if streetname stays but here it is suboptimal:
+    // this problem is solved now :)
     @Test
     public void testNoInstructionIfSameStreet()
     {
@@ -279,7 +280,7 @@ public class InstructionListTest
         Path p = new Dijkstra(g, carEncoder, new ShortestWeighting(carEncoder), tMode).calcPath(2, 3);
         InstructionList wayList = p.calcInstructions(usTR);
         List<String> tmpList = pick("text", wayList.createJson());
-        assertEquals(Arrays.asList("Continue onto street", "Finish!"), tmpList);
+        assertEquals(Arrays.asList("Continue onto street", "Turn right onto street", "Finish!"), tmpList);
     }
 
     @Test
@@ -350,13 +351,15 @@ public class InstructionListTest
     public void testRoundaboutJsonIntegrity()
     {
         InstructionList il = new InstructionList(usTR);
+        List<InstructionAnnotation> ea = new ArrayList<InstructionAnnotation>();
+        ea.add(new InstructionAnnotation(0, "", ""));
 
         PointList pl = new PointList();
         pl.add(52.514, 13.349);
         pl.add(52.5135, 13.35);
         pl.add(52.514, 13.351);
         RoundaboutInstruction instr = new RoundaboutInstruction(Instruction.USE_ROUNDABOUT, "streetname",
-                new InstructionAnnotation(0, ""), pl)
+                ea, pl)
                 .setDirOfRotation(-0.1)
                 .setRadian(-Math.PI + 1)
                 .setExitNumber(2)
@@ -377,13 +380,15 @@ public class InstructionListTest
     public void testRoundaboutJsonNaN()
     {
         InstructionList il = new InstructionList(usTR);
+        List<InstructionAnnotation> ea = new ArrayList<InstructionAnnotation>();
+        ea.add(new InstructionAnnotation(0, "", ""));
 
         PointList pl = new PointList();
         pl.add(52.514, 13.349);
         pl.add(52.5135, 13.35);
         pl.add(52.514, 13.351);
         RoundaboutInstruction instr = new RoundaboutInstruction(Instruction.USE_ROUNDABOUT, "streetname",
-                new InstructionAnnotation(0, ""), pl)
+                ea, pl)
                 .setRadian(-Math.PI + 1)
                 .setExitNumber(2)
                 .setExited();
@@ -427,7 +432,8 @@ public class InstructionListTest
     @Test
     public void testCreateGPX()
     {
-        InstructionAnnotation ea = InstructionAnnotation.EMPTY;
+        List<InstructionAnnotation> ea = new ArrayList<InstructionAnnotation>();
+        ea.add(InstructionAnnotation.EMPTY);
         InstructionList instructions = new InstructionList(usTR);
         PointList pl = new PointList();
         pl.add(49.942576, 11.580384);

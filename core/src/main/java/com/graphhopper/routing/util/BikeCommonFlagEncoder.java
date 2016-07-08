@@ -443,15 +443,17 @@ public class BikeCommonFlagEncoder extends AbstractFlagEncoder
     }
 
     @Override
-    public InstructionAnnotation getAnnotation( long flags, Translation tr )
+    public List<InstructionAnnotation> getAnnotations( long flags, Translation tr )
     {
+        List<InstructionAnnotation> ia = new ArrayList<InstructionAnnotation>();
         int paveType = 0; // paved
         if (isBool(flags, K_UNPAVED))
             paveType = 1; // unpaved        
 
         int wayType = (int) wayTypeEncoder.getValue(flags);
         String wayName = getWayName(paveType, wayType, tr);
-        return new InstructionAnnotation(0, wayName);
+        ia.add(new InstructionAnnotation(0, "wayType", wayName));
+        return ia;
     }
 
     String getWayName( int pavementType, int wayType, Translation tr )

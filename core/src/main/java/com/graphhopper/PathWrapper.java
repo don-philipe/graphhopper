@@ -17,11 +17,15 @@
  */
 package com.graphhopper;
 
+import com.graphhopper.util.InstructionAnnotation;
 import com.graphhopper.util.InstructionList;
 import com.graphhopper.util.PointList;
+import com.graphhopper.util.Translation;
 import com.graphhopper.util.shapes.BBox;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -41,6 +45,7 @@ public class PathWrapper
     private InstructionList instructions;
     private PointList list = PointList.EMPTY;
     private final List<Throwable> errors = new ArrayList<Throwable>(4);
+    private String detailedOverview = "";
 
     /**
      * @return the description of this route alternative to make it meaningful for the user e.g. it
@@ -267,5 +272,88 @@ public class PathWrapper
     {
         this.errors.addAll(errors);
         return this;
+    }
+    
+    /**
+     * 
+     * @param additionalFeatures k:feature - v:quantity
+     * @param tr
+     * @return 
+     */
+    public PathWrapper setDetailedOverview( HashMap<String, Integer> additionalFeatures, Translation tr )
+    {
+        String start = this.instructions.get(0).getName();
+        if (start.isEmpty())
+        {
+            for (InstructionAnnotation ia : this.instructions.get(0).getAnnotations())
+            {
+                if (ia.getType().equals("wayType"))
+                {
+                    start = ia.getMessage();
+                    break;
+                }
+            }
+        }
+        String finish = this.instructions.get(this.instructions.size() - 2).getName();
+        if (finish.isEmpty())
+        {
+            for (InstructionAnnotation ia : this.instructions.get(this.instructions.size() - 2).getAnnotations())
+            {
+                if (ia.getType().equals("room"))
+                {
+                    finish = "room " + ia.getMessage();
+                    break;
+                }
+            }
+        }
+        DecimalFormat df = new DecimalFormat("#");  // round distance to full meters
+        this.detailedOverview = "The calculated route leads from "
+                + start + " to "
+                + finish + ". The route is " 
+                + df.format(this.distance)
+                + " meters long";
+        
+        String featurestring = "";
+        boolean firstrun = true;
+        for (String feature : additionalFeatures.keySet())
+        {
+            if (feature.equals("steps"))
+            {
+                if (!firstrun)
+                    featurestring += " " + tr.tr("and") + " ";
+                else
+                    firstrun = false;
+                int quantity = additionalFeatures.get(feature);
+                featurestring += quantity + " stairs";
+            }
+            if (feature.equals("elevator"))
+            {
+                if (!firstrun)
+                    featurestring += " " + tr.tr("and") + " ";
+                else
+                    firstrun = false;
+                int quantity = additionalFeatures.get(feature);
+                if (quantity > 1)
+                    featurestring += quantity + feature + "s";
+                else
+                    featurestring += quantity + " " + feature;
+            }
+        }
+        
+        if (!featurestring.isEmpty())
+            this.detailedOverview += " and contains " + featurestring;
+        
+        this.detailedOverview += ".";
+        
+        return this;
+    }
+    
+    /**
+     * 
+     * @return Overview when this feature is enabled or an empty String otherwise.
+     */
+    public String getDetailedOverview()
+    {
+        return this.detailedOverview;
     }
 }

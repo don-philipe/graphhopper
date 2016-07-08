@@ -27,9 +27,11 @@ import java.util.Locale;
 
 import static com.graphhopper.routing.util.PriorityCode.*;
 import com.graphhopper.util.Helper;
+import com.graphhopper.util.InstructionAnnotation;
 import static com.graphhopper.util.TranslationMapTest.SINGLETON;
 import java.text.DateFormat;
 import java.util.Date;
+import java.util.List;
 import static org.junit.Assert.*;
 
 /**
@@ -75,7 +77,17 @@ public abstract class AbstractBikeFlagEncoderTester
         long allowed = encoder.acceptBit;
         long flags = encoder.handleWayTags(way, allowed, relationFlags);
         Translation enMap = SINGLETON.getWithFallBack(Locale.UK);
-        return encoder.getAnnotation(flags, enMap).getMessage();
+        List<InstructionAnnotation> ias = encoder.getAnnotations(flags, enMap);
+        String im = "";
+        for (InstructionAnnotation ia : ias)
+        {
+            if (ia.getType().equals("wayType"))
+            {
+                im = ia.getMessage();
+                break;
+            }
+        }
+        return im;
     }
 
     @Test

@@ -21,6 +21,7 @@ package com.graphhopper.util;
 import com.graphhopper.PathWrapper;
 import com.graphhopper.routing.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -33,6 +34,7 @@ public class PathMerger
 {
     private static final DouglasPeucker DP = new DouglasPeucker();
     private boolean enableInstructions = true;
+    private boolean enableDetailedInstructions = false;
     private boolean simplifyResponse = true;
     private DouglasPeucker douglasPeucker = DP;
     private boolean calcPoints = true;
@@ -60,6 +62,12 @@ public class PathMerger
         this.enableInstructions = enableInstructions;
         return this;
     }
+    
+    public PathMerger setEnableDetailedInstructions( boolean enableDetailedInstructions )
+    {
+        this.enableDetailedInstructions = enableDetailedInstructions;
+        return this;
+    }
 
     public void doWork( PathWrapper altRsp, List<Path> paths, Translation tr )
     {
@@ -72,6 +80,7 @@ public class PathMerger
         InstructionList fullInstructions = new InstructionList(tr);
         PointList fullPoints = PointList.EMPTY;
         List<String> description = new ArrayList<String>();
+        HashMap<String, Integer> additionalRouteFeatures = new HashMap<String, Integer>();        
         for (int pathIndex = 0; pathIndex < paths.size(); pathIndex++)
         {
             Path path = paths.get(pathIndex);
@@ -101,6 +110,19 @@ public class PathMerger
                         }
                         fullInstructions.add(i);
                         fullPoints.add(i.getPoints());
+                        
+                        // get additional features of the path from the instruction annotations:
+                        if (this.enableDetailedInstructions)
+                        {
+                            for (InstructionAnnotation ia : i.annotation)
+                            {
+                                //TODO: filter features - not all annotations are necessary here
+                                if (!additionalRouteFeatures.containsKey(ia.getMessage()))
+                                    additionalRouteFeatures.put(ia.getMessage(), 1);
+                                else
+                                    additionalRouteFeatures.put(ia.getMessage(), additionalRouteFeatures.get(ia.getMessage()) + 1);
+                            }
+                        }
                     }
 
                     // if not yet reached finish replace with 'reached via'
@@ -148,6 +170,9 @@ public class PathMerger
                 setRouteWeight(fullWeight).
                 setDistance(fullDistance).
                 setTime(fullTimeInMillis);
+        
+        if (this.enableDetailedInstructions)
+            altRsp.setDetailedOverview(additionalRouteFeatures, tr);
     }
 
     private void calcAscendDescend( final PathWrapper rsp, final PointList pointList )

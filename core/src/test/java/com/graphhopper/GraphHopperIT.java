@@ -376,9 +376,11 @@ public class GraphHopperIT
         List<Map<String, Object>> resultJson = il.createJson();
 
         assertEquals("Continue onto Obere Landstraße", resultJson.get(0).get("text"));
-        assertEquals("get off the bike", resultJson.get(0).get("annotation_text"));
+        Map<String, String> annotation = (Map<String, String>) resultJson.get(0).get("annotations");
+        assertEquals("get off the bike", annotation.get("wayType"));
         assertEquals("Turn left onto Kirchengasse", resultJson.get(1).get("text"));
-        assertEquals("get off the bike", resultJson.get(1).get("annotation_text"));
+        annotation = (Map<String, String>) resultJson.get(1).get("annotations");
+        assertEquals("get off the bike", annotation.get("wayType"));
 
         assertEquals("Turn right onto Pfarrplatz", resultJson.get(2).get("text"));
         assertEquals("Turn right onto Margarethenstraße", resultJson.get(3).get("text"));
@@ -391,7 +393,62 @@ public class GraphHopperIT
         assertEquals("Turn slight left onto Rechte Kremszeile", resultJson.get(10).get("text"));
         //..
         assertEquals("Turn right onto Treppelweg", resultJson.get(15).get("text"));
-        assertEquals("cycleway", resultJson.get(15).get("annotation_text"));
+        annotation = (Map<String, String>) resultJson.get(15).get("annotations");
+        assertEquals("cycleway", annotation.get("wayType"));
+    }
+    
+    @Test
+    public void testBlindManAnnotations()
+    {
+        String tmpOsmFile = "files/blindman_test_indoor1.osm";
+        String tmpVehicle = "BLINDMAN";
+        String tmpImportVehicles = "BLINDMAN";
+        String tmpWeightCalcStr = "fastest";
+
+        GraphHopper tmpHopper = new GraphHopper().
+                setStoreOnFlush(true).
+                setOSMFile(tmpOsmFile).
+                setCHEnable(false).
+                setGraphHopperLocation(tmpGraphFile).
+                setEncodingManager(new EncodingManager(tmpImportVehicles, 8)).
+                setEnableDetailedInstructions(true).
+                importOrLoad();
+
+        GHResponse rsp = tmpHopper.route(new GHRequest(51.029457909992836, 13.728932216531147, 51.02967775185081, 13.729386511811759).
+                setAlgorithm(AlgorithmOptions.ASTAR).setVehicle(tmpVehicle).setWeighting(tmpWeightCalcStr));
+
+        PathWrapper arsp = rsp.getBest();
+        assertEquals(7, arsp.getPoints().getSize());
+        
+        String overview = arsp.getDetailedOverview();
+        assertEquals("The calculated route leads from footway to room 111100.0330. The route is 55 meters long and contains 2 stairs.", overview);
+
+        InstructionList il = arsp.getInstructions();
+        assertEquals(6, il.size());
+        List<Map<String, Object>> resultJson = il.createJson();
+
+        assertEquals("Continue", resultJson.get(0).get("text"));
+        Map<String, String> annotation = (Map<String, String>) resultJson.get(0).get("annotations");
+        assertEquals("footway", annotation.get("wayType"));
+        assertEquals("cobblestone", annotation.get("surface"));
+        
+        assertEquals("Turn left", resultJson.get(1).get("text"));
+        annotation = (Map<String, String>) resultJson.get(1).get("annotations");
+        assertEquals("steps", annotation.get("wayType"));
+        assertEquals("_default", annotation.get("surface"));
+        
+        assertEquals("Continue", resultJson.get(2).get("text"));
+        annotation = (Map<String, String>) resultJson.get(2).get("annotations");
+        assertEquals("steps", annotation.get("wayType"));
+        
+        assertEquals("Turn right", resultJson.get(3).get("text"));
+        annotation = (Map<String, String>) resultJson.get(3).get("annotations");
+        assertEquals("corridor", annotation.get("wayType"));
+        
+        assertEquals("Finish!", resultJson.get(5).get("text"));
+        annotation = (Map<String, String>) resultJson.get(5).get("annotations");
+        assertEquals(null, annotation.get("wayType"));
+        assertEquals("0330", annotation.get("endRoom"));
     }
 
     @Test

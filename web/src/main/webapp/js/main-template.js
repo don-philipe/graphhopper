@@ -559,8 +559,14 @@ function routeLatLng(request, doQuery) {
             if (path.description && path.description.length > 0) {
                 routeInfo.text(path.description);
                 routeInfo.append("<br/>");
+            }         
+            if (path.detailed_overview && path.detailed_overview.length > 0) {
+                routeInfo.text(path.detailed_overview);
+                routeInfo.append("<br/>");
             }
-            routeInfo.append(translate.tr("routeInfo", [tmpDist, tmpTime]));
+            else    // the default route info
+                routeInfo.append(translate.tr("routeInfo", [tmpDist, tmpTime]));
+            
             if (request.hasElevation()) {
                 routeInfo.append(translate.createEleInfoString(path.ascend, path.descend));
             }

@@ -47,6 +47,7 @@ public class EncodingManager
     public static final String RACINGBIKE = "racingbike";
     public static final String MOUNTAINBIKE = "mtb";
     public static final String FOOT = "foot";
+    public static final String BLINDMAN = "blindman";
     public static final String MOTORCYCLE = "motorcycle";
     public static final String WHEELCHAIR = "wheelchair";
     private static final Map<String, String> defaultEdgeFlagEncoders = new HashMap<String, String>();
@@ -170,6 +171,9 @@ public class EncodingManager
 
             else if (entry.equals(FOOT))
                 fe = new FootFlagEncoder(configuration);
+            
+            else if (entry.equals(BLINDMAN))
+                fe = new BlindManFlagEncoder(configuration);
 
             else if (entry.equals(MOTORCYCLE))
                 fe = new MotorcycleFlagEncoder(configuration);

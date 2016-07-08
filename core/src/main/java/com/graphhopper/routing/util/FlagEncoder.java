@@ -19,6 +19,7 @@ package com.graphhopper.routing.util;
 
 import com.graphhopper.util.InstructionAnnotation;
 import com.graphhopper.util.Translation;
+import java.util.List;
 
 /**
  * This class provides methods to define how a value (like speed or direction) converts to a flag
@@ -126,7 +127,7 @@ public interface FlagEncoder extends TurnCostEncoder
     /**
      * @return additional cost or warning information for an instruction like ferry or road charges.
      */
-    InstructionAnnotation getAnnotation( long flags, Translation tr );
+    List<InstructionAnnotation> getAnnotations( long flags, Translation tr );
 
     /**
      * @return true if already registered in an EncodingManager

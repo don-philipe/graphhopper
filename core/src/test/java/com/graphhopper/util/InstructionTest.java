@@ -17,6 +17,8 @@
  */
 package com.graphhopper.util;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -29,7 +31,8 @@ public class InstructionTest
     @Test
     public void testCalcAzimuthAndGetDirection()
     {
-        InstructionAnnotation ea = InstructionAnnotation.EMPTY;
+        List<InstructionAnnotation> ea = new ArrayList<InstructionAnnotation>();
+        ea.add(InstructionAnnotation.EMPTY);
         PointList pl = new PointList();
         pl.add(49.942, 11.584);
 

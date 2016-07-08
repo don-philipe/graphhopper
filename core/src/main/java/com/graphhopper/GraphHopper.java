@@ -65,6 +65,7 @@ public class GraphHopper implements GraphHopperAPI
     private final String fileLockName = "gh.lock";
     private boolean allowWrites = true;
     boolean enableInstructions = true;
+    boolean enableDetailedInstructions = false;
     private String preferredLanguage = "";
     private boolean fullyLoaded = false;
     // for routing
@@ -433,6 +434,13 @@ public class GraphHopper implements GraphHopperAPI
         enableInstructions = b;
         return this;
     }
+    
+    public GraphHopper setEnableDetailedInstructions( boolean b )
+    {
+        ensureNotLoaded();
+        enableDetailedInstructions = b;
+        return this;
+    }
 
     /**
      * This method specifies the preferred language for way names during import.
@@ -615,7 +623,7 @@ public class GraphHopper implements GraphHopperAPI
 
         sortGraph = args.getBool("graph.doSort", sortGraph);
         removeZipped = args.getBool("graph.removeZipped", removeZipped);
-        int bytesForFlags = args.getInt("graph.bytesForFlags", 4);
+        int bytesForFlags = args.getInt("graph.bytesForFlags", 8);
         String flagEncoders = args.get("graph.flagEncoders", "");
         if (!flagEncoders.isEmpty())
             setEncodingManager(new EncodingManager(flagEncoders, bytesForFlags));
@@ -678,6 +686,7 @@ public class GraphHopper implements GraphHopperAPI
 
         workerThreads = args.getInt("osmreader.workerThreads", workerThreads);
         enableInstructions = args.getBool("osmreader.instructions", enableInstructions);
+        enableDetailedInstructions = args.getBool("osmreader.detailedInstructions", enableDetailedInstructions);
         preferredLanguage = args.get("osmreader.preferred-language", preferredLanguage);
 
         // index
@@ -1110,6 +1119,7 @@ public class GraphHopper implements GraphHopperAPI
                 setCalcPoints(tmpCalcPoints).
                 setDouglasPeucker(peucker).
                 setEnableInstructions(tmpEnableInstructions).
+                setEnableDetailedInstructions(enableDetailedInstructions).
                 setSimplifyResponse(simplifyResponse && wayPointMaxDistance > 0);
 
         Locale locale = request.getLocale();
