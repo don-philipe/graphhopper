@@ -44,7 +44,7 @@ public class BlockWayWeightingTest
         GHRequest req = new GHRequest().
                 addPoint(new GHPoint(51.052764596113, 13.778019504270393), 0.).
                 addPoint(new GHPoint(51.052725131037995, 13.780775418583353), 190.).
-                setVehicle("BLINDMAN").setWeighting("blockedway");
+                setVehicle("BLINDMAN").setWeighting("blockway");
         req.getHints().put("block_way", "steps");
         GHResponse rsp = gh.route(req);
         PathWrapper arsp = rsp.getBest();
