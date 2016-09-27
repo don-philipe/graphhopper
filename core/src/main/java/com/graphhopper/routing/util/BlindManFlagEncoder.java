@@ -156,7 +156,7 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         }
         if (node.hasTag("entrance"))
             landmarks.put(node.getId(), "entrance");
-        if (node.hasTag("elevator"))
+        if (node.hasTag("highway", "elevator"))
             landmarks.put(node.getId(), "elevator");
         
         return encoded;
