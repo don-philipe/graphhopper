@@ -37,6 +37,7 @@ public class BlindManFlagEncoder extends FootFlagEncoder
     private HashMap<Long, String> landmarks;
     private EncodedValue buildingIdEncoder;
     private EncodedValue levelEncoder;
+    private EncodedValue levelsignEncoder;
     private EncodedValue endRoomEncoder;
     private EncodedValue landmarkEncoder;
     private final Set<String> indoorWayTypeSet = new HashSet<String>();
@@ -130,7 +131,9 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         shift += endRoomEncoder.getBits();
         levelEncoder = new EncodedValue("level", shift, 4, 1, 0, 10);
         shift += levelEncoder.getBits();
-        
+        levelsignEncoder = new EncodedValue("levelsign", shift, 1, 1, 0, 1);
+        shift += levelEncoder.getBits();
+
         landmarkEncoder = new EncodedValue("landmark", shift, 3, 1, 0, landmarkMap.size(), true);
         shift += landmarkEncoder.getBits();
         
@@ -185,18 +188,23 @@ public class BlindManFlagEncoder extends FootFlagEncoder
 //            encoded = levelEncoder.setValue(encoded, Long.valueOf(level));
 //        }
         
-//        if (way.getNodes().size() > 1)
-//        {
+        if (way.getNodes().size() > 1)
+        {
             long key = way.getNodes().get(way.getNodes().size() - 1);
 //            if (rooms.containsKey(key))
 //            {
                 String buildingid = "";
                 String level = "";
+                long levelsign = 1;
                 String endroom = rooms.get(key);
                 if (endroom != null && endroom.length() > 11)
                 {
                     buildingid = endroom.substring(4, 8);
                     level = endroom.substring(8, 10);
+                    if (level.contains("-")) {
+                        level = String.valueOf(Math.abs(Long.valueOf(level)));
+                        levelsign = 0;
+                    }
                     endroom = endroom.substring(11);
                 }
                 else
@@ -207,6 +215,7 @@ public class BlindManFlagEncoder extends FootFlagEncoder
                 }
                 encoded = buildingIdEncoder.setValue(encoded, Long.valueOf(buildingid));
                 encoded = levelEncoder.setValue(encoded, Long.valueOf(level));
+                encoded = levelsignEncoder.setValue(encoded, levelsign);
                 encoded = endRoomEncoder.setValue(encoded, Long.valueOf(endroom));
 //            }
 //            if (landmarks.containsKey(key))
@@ -216,7 +225,7 @@ public class BlindManFlagEncoder extends FootFlagEncoder
                     value = landmarkMap.get("_default");
                 encoded = landmarkEncoder.setValue(encoded, value);
 //            }
-//        }
+        }
         
         // waytype
         Integer wValue;
@@ -231,9 +240,16 @@ public class BlindManFlagEncoder extends FootFlagEncoder
         encoded = wayTypeEncoder.setValue(encoded, wValue);
         
         // level
-        if (way.hasTag("level"))
-            encoded = levelEncoder.setValue(encoded, Long.valueOf(way.getTag("level")));
-        
+        if (way.hasTag("level")) {
+            long lvl = Long.valueOf(way.getTag("level"));
+            encoded = levelEncoder.setValue(encoded, Math.abs(lvl));
+            if (lvl < 0) {
+                encoded = levelsignEncoder.setValue(encoded, 0);
+            } else {
+                encoded = levelsignEncoder.setValue(encoded, 1);
+            }
+        }
+
         // surface
         Integer sValue;
         if (way.hasTag("tactile_paving", "yes"))    // prefer tactile paving if present
@@ -272,6 +288,10 @@ public class BlindManFlagEncoder extends FootFlagEncoder
 //        }
         long buildingid = buildingIdEncoder.getValue(flags);
         long level = levelEncoder.getValue(flags);
+        long levelsign = levelsignEncoder.getValue(flags);
+        if (levelsign == 0) {
+            level *= -1;
+        }
         long endroomid = endRoomEncoder.getValue(flags);
         if (endroomid > 0)
         {

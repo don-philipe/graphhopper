@@ -130,4 +130,42 @@ public class BlindManFlagEncoderTest
         }
         assertEquals("_default", surface);
     }
+
+    @Test
+    public void testLevelsign() {
+        OSMWay w1 = new OSMWay(1);
+        w1.setTag("level", "1");
+        w1.setTag("highway", "footway");
+        OSMWay w2 = new OSMWay(1);
+        w2.setTag("level", "-1");
+        w2.setTag("highway", "footway");
+
+        EncodingManager em = new EncodingManager(EncodingManager.BLINDMAN, 8);
+        BlindManFlagEncoder bmfe = (BlindManFlagEncoder) em.getEncoder(EncodingManager.BLINDMAN);
+        assertTrue(bmfe.acceptWay(w1) > 0);
+        assertTrue(bmfe.acceptWay(w2) > 0);
+
+        long flags = bmfe.handleWayTags(w1, bmfe.acceptWay(w1), 0);
+        Translation tr = SINGLETON.getWithFallBack(Locale.UK);
+        List<InstructionAnnotation> ias = bmfe.getAnnotations(flags, tr);
+        int lvl = Integer.MAX_VALUE;
+        for (InstructionAnnotation ia : ias) {
+            if (ia.getType().equals("level")) {
+                lvl = Integer.valueOf(ia.getMessage());
+                break;
+            }
+        }
+        assertEquals(1, lvl);
+
+        flags = bmfe.handleWayTags(w2, bmfe.acceptWay(w1), 0);
+        ias = bmfe.getAnnotations(flags, tr);
+        lvl = Integer.MAX_VALUE;
+        for (InstructionAnnotation ia : ias) {
+            if (ia.getType().equals("level")) {
+                lvl = Integer.valueOf(ia.getMessage());
+                break;
+            }
+        }
+        assertEquals(-1, lvl);
+    }
 }
